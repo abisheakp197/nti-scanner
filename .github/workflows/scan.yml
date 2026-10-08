@@ -1,0 +1,28 @@
+name: NTI Security Scan
+
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install scanner
+        run: pip install .
+      - name: Scan
+        run: nti-scanner scan . --format sarif --output results.sarif || true
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

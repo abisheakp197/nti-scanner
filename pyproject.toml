@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "nti-scanner"
+version = "0.1.0"
+description = "Professional NTI-1 compliance and AI agent security scanner with AST analysis, taint tracking, CWE mapping, MCP/A2A rules, and SARIF output."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Abisheak", email = "abisheakp197@gmail.com" }]
+keywords = ["ai-agents", "security-scanner", "sast", "static-analysis", "nti", "nti-1", "compliance", "post-quantum-cryptography", "pqc", "ai-security", "sarif", "cwe", "mcp", "a2a"]
+classifiers = ["Development Status :: 3 - Alpha", "Intended Audience :: Developers", "License :: OSI Approved :: Apache Software License", "Topic :: Security", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12"]
+dependencies = ["click>=8.1.0", "rich>=13.0.0"]
+
+
+[project.scripts]
+nti-scanner = "nti_scanner.cli:main"
+
+
+[project.urls]
+Homepage = "https://abisheakp197.github.io/Neutral-Trust-Infrastructure/"
+Repository = "https://github.com/abisheakp197/nti-scanner"
+Issues = "https://github.com/abisheakp197/nti-scanner/issues"
+
+
+[tool.setuptools.packages.find]
+include = ["nti_scanner*"]
