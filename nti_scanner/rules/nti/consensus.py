@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 from typing import List
 from nti_scanner.rules.base import BaseRule, RuleMeta
-from nti_scanner.scanner import Finding
+from nti_scanner.rules.base import Finding
 
 
 class ConsensusRule(BaseRule):

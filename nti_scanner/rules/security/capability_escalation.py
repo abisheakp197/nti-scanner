@@ -2,8 +2,7 @@
 import ast
 from pathlib import Path
 from typing import List
-from nti_scanner.rules.base import BaseRule, RuleMeta
-from nti_scanner.scanner import Finding
+from nti_scanner.rules.base import BaseRule, RuleMeta, Finding
 
 
 class CapabilityEscalationRule(BaseRule):
@@ -17,7 +16,8 @@ class CapabilityEscalationRule(BaseRule):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 name = node.name.lower()
                 for dec in node.decorator_list:
-                    if isinstance(dec, ast.Call) and _name(dec.func) == "tool":
+                    dec_name = _name(dec.func if isinstance(dec, ast.Call) else dec)
+                    if dec_name in {"tool", "function_tool"}:
                         if any(d in name for d in self.DANGEROUS_NAMES):
                             findings.append(self.make_finding(path, node, f"Tool '{node.name}' has destructive name."))
         return findings

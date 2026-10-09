@@ -1,0 +1,1 @@
+"""NTI pillar rule tests."""

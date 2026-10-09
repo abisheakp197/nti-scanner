@@ -8,7 +8,7 @@ def parse_python_file(path: Path) -> Optional[ast.AST]:
     try:
         source = path.read_text(encoding="utf-8", errors="ignore")
         return ast.parse(source, filename=str(path))
-    except (SyntaxError, ValueError):
+    except Exception:
         return None
 
 

@@ -28,3 +28,8 @@ Issues = "https://github.com/abisheakp197/nti-scanner/issues"
 
 [tool.setuptools.packages.find]
 include = ["nti_scanner*"]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
