@@ -1,6 +1,6 @@
 """Contract tests for HTML report output."""
 from nti_scanner.report.html import render_html
-from nti_scanner.scanner import ScanResult, Finding
+from nti_scanner.scanner import Finding, ScanResult
 
 
 def test_render_html_structure(tmp_path):

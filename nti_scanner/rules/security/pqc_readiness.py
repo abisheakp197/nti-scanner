@@ -1,16 +1,15 @@
 """Detect classical crypto that quantum computers will break."""
 import ast
 from pathlib import Path
-from typing import List
-from nti_scanner.rules.base import BaseRule, RuleMeta
-from nti_scanner.rules.base import Finding
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
 
 
 class PQCReadinessRule(BaseRule):
     meta = RuleMeta(id="SEC-PQC-001", category="Identity", severity="high", confidence="high",
                     description="Quantum-vulnerable cryptography (RSA/ECDSA/DH)", cwe="CWE-327",
                     remediation="Migrate to Dilithium5/Kyber1024.")
-    def check(self, path: Path, tree: ast.AST, frameworks: List[str]) -> List[Finding]:
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
         findings = []
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):

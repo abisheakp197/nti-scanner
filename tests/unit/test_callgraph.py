@@ -1,5 +1,6 @@
 """Unit tests for call graph construction."""
 import ast
+
 from nti_scanner.ast_analysis.callgraph import build_call_graph
 
 

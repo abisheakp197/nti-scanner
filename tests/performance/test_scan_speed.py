@@ -1,5 +1,6 @@
 """Scan speed must be reasonable for large projects."""
 import time
+
 from nti_scanner.scanner import scan_directory
 
 
