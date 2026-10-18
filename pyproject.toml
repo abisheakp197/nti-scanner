@@ -15,6 +15,15 @@ keywords = ["ai-agents", "security-scanner", "sast", "static-analysis", "nti", "
 classifiers = ["Development Status :: 3 - Alpha", "Intended Audience :: Developers", "Topic :: Security", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12"]
 dependencies = ["click>=8.1.0", "rich>=13.0.0"]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "pytest-xdist",
+    "pytest-random-order",
+    "jsonschema>=4.0.0",
+]
+
 
 [project.scripts]
 nti-scanner = "nti_scanner.cli:main"
@@ -33,3 +42,15 @@ include = ["nti_scanner*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "unit: unit tests",
+    "rule: individual rule tests",
+    "contract: output format contract tests",
+    "integration: end-to-end scanner tests",
+    "failure: failure mode tests",
+    "performance: performance benchmarks",
+    "regression: score stability tests",
+]
