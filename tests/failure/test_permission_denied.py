@@ -1,6 +1,6 @@
 """Permission denied must not crash."""
 import os
-import stat
+
 from nti_scanner.scanner import scan_directory
 
 

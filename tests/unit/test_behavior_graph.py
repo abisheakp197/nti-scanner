@@ -1,7 +1,8 @@
 """Unit tests for behavior graph building."""
 import json
-from nti_scanner.ast_analysis.parser import parse_python_file
+
 from nti_scanner.analysis.behavior_graph import build_behavior_graph, render_graph_json
+from nti_scanner.ast_analysis.parser import parse_python_file
 
 
 def test_build_behavior_graph(tmp_python_file):

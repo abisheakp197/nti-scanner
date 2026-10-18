@@ -1,5 +1,6 @@
 """Unit tests for taint analysis."""
 import ast
+
 from nti_scanner.ast_analysis.taint import find_tainted_calls
 
 

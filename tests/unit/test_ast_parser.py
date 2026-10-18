@@ -1,5 +1,4 @@
 """Unit tests for the AST parser."""
-from pathlib import Path
 from nti_scanner.ast_analysis.parser import parse_python_file
 
 

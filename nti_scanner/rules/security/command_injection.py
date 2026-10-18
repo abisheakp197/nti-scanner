@@ -1,17 +1,16 @@
 """Detect command injection via shell calls."""
 import ast
 from pathlib import Path
-from typing import List
-from nti_scanner.rules.base import BaseRule, RuleMeta
-from nti_scanner.rules.base import Finding
+
 from nti_scanner.ast_analysis.taint import find_tainted_calls
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
 
 
 class CommandInjectionRule(BaseRule):
     meta = RuleMeta(id="SEC-CMD-001", category="Security", severity="critical", confidence="high",
                     description="Potential command injection via unsanitized shell call", cwe="CWE-78",
                     remediation="Avoid shell=True. Validate all inputs.")
-    def check(self, path: Path, tree: ast.AST, frameworks: List[str]) -> List[Finding]:
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
         findings = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -30,9 +29,12 @@ class CommandInjectionRule(BaseRule):
         return findings[:5]
 
 
-def _full_name(node):
-    parts = []
-    while isinstance(node, ast.Attribute):
-        parts.append(node.attr); node = node.value
-    if isinstance(node, ast.Name): parts.append(node.id)
+def _full_name(node: ast.AST) -> str:
+    parts: list[str] = []
+    cur: ast.AST = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
     return ".".join(reversed(parts))

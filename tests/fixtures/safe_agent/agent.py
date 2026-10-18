@@ -1,8 +1,8 @@
 """Safe agent using NTI (for scanner testing)."""
 from langchain.agents import AgentExecutor
-from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_nti import NTICallbackHandler
+from langchain_openai import ChatOpenAI
 
 
 @tool

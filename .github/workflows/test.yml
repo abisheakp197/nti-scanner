@@ -17,9 +17,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest pytest-cov
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install -e . || true
+          pip install --upgrade pip
+          pip install -e ".[dev]"
 
       - name: Unit tests
         run: pytest tests/unit -v
@@ -43,4 +42,4 @@ jobs:
         run: pytest tests/performance -v -s
 
       - name: Full suite with coverage
-        run: pytest tests/ --cov=nti_scanner --cov-report=term-missing || true
+        run: pytest tests/ --cov=nti_scanner --cov-report=term-missing

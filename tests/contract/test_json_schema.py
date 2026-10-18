@@ -1,7 +1,7 @@
 """JSON output contract."""
 import json
-from nti_scanner.scanner import scan_directory, Finding, ScanResult
-from pathlib import Path
+
+from nti_scanner.scanner import Finding, ScanResult
 
 
 def test_scan_result_to_dict_shape(tmp_path):

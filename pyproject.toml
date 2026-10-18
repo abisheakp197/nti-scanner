@@ -9,11 +9,20 @@ version = "0.1.0"
 description = "Professional NTI-1 compliance and AI agent security scanner with AST analysis, taint tracking, CWE mapping, MCP/A2A rules, and SARIF output."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 authors = [{ name = "Abisheak", email = "abisheakp197@gmail.com" }]
 keywords = ["ai-agents", "security-scanner", "sast", "static-analysis", "nti", "nti-1", "compliance", "post-quantum-cryptography", "pqc", "ai-security", "sarif", "cwe", "mcp", "a2a"]
-classifiers = ["Development Status :: 3 - Alpha", "Intended Audience :: Developers", "License :: OSI Approved :: Apache Software License", "Topic :: Security", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12"]
+classifiers = ["Development Status :: 3 - Alpha", "Intended Audience :: Developers", "Topic :: Security", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12"]
 dependencies = ["click>=8.1.0", "rich>=13.0.0"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "pytest-xdist",
+    "pytest-random-order",
+    "jsonschema>=4.0.0",
+]
 
 
 [project.scripts]
@@ -33,3 +42,15 @@ include = ["nti_scanner*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "unit: unit tests",
+    "rule: individual rule tests",
+    "contract: output format contract tests",
+    "integration: end-to-end scanner tests",
+    "failure: failure mode tests",
+    "performance: performance benchmarks",
+    "regression: score stability tests",
+]

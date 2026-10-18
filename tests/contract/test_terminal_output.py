@@ -1,7 +1,8 @@
 """Contract tests for terminal output rendering."""
 from rich.console import Console
+
 from nti_scanner.report.terminal import render_terminal
-from nti_scanner.scanner import ScanResult, Finding
+from nti_scanner.scanner import Finding, ScanResult
 
 
 def test_render_terminal_output(tmp_path):

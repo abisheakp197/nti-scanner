@@ -1,5 +1,4 @@
 """Tests for framework detection."""
-from pathlib import Path
 from nti_scanner.ast_analysis.parser import parse_python_file
 from nti_scanner.framework.detector import detect_frameworks
 

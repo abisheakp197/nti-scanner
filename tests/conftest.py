@@ -1,9 +1,8 @@
 """Shared fixtures for the nti-scanner test suite."""
 
-import shutil
 from pathlib import Path
-import pytest
 
+import pytest
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

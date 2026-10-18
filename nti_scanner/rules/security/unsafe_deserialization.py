@@ -1,17 +1,18 @@
 """Detect unsafe deserialization."""
 import ast
 from pathlib import Path
-from typing import List
-from nti_scanner.rules.base import BaseRule, RuleMeta
-from nti_scanner.rules.base import Finding
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
 
 
 class UnsafeDeserializationRule(BaseRule):
     meta = RuleMeta(id="SEC-DESER-001", category="Security", severity="critical", confidence="high",
                     description="Unsafe deserialization (pickle, yaml.load)", cwe="CWE-502",
                     remediation="Use json instead of pickle. Use safe_load for YAML.")
-    UNSAFE = {"pickle.load", "pickle.loads", "yaml.load", "dill.loads", "marshal.loads"}
-    def check(self, path: Path, tree: ast.AST, frameworks: List[str]) -> List[Finding]:
+    UNSAFE: ClassVar[set[str]] = {"pickle.load", "pickle.loads", "yaml.load", "dill.loads", "marshal.loads"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
         findings = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -21,9 +22,12 @@ class UnsafeDeserializationRule(BaseRule):
         return findings[:3]
 
 
-def _full_name(node):
-    parts = []
-    while isinstance(node, ast.Attribute):
-        parts.append(node.attr); node = node.value
-    if isinstance(node, ast.Name): parts.append(node.id)
+def _full_name(node: ast.AST) -> str:
+    parts: list[str] = []
+    cur: ast.AST = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
     return ".".join(reversed(parts))

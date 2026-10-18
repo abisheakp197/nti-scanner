@@ -1,5 +1,6 @@
 """Unit tests for the scanner module."""
 from click.testing import CliRunner
+
 from nti_scanner.cli import main
 from nti_scanner.scanner import scan_directory
 

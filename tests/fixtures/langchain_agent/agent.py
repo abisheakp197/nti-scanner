@@ -1,8 +1,8 @@
 """LangChain-only agent (framework detection test)."""
 from langchain.agents import AgentExecutor
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
 
 
 @tool

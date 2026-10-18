@@ -1,13 +1,16 @@
 """Rich terminal renderer."""
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
+from pathlib import Path
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from nti_scanner.scanner import ScanResult
 
 SEVERITY_COLORS = {"critical": "bold red", "high": "red", "medium": "yellow", "low": "dim", "info": "blue"}
 
 
-def render_terminal(result, console: Console):
+def render_terminal(result: ScanResult, console: Console) -> None:
     score = result.nti1_score
     if score >= 90: color, grade = "green", "A"
     elif score >= 75: color, grade = "cyan", "B"
@@ -34,7 +37,7 @@ def render_terminal(result, console: Console):
         t.add_column("File:Line")
         for f in result.findings[:30]:
             t.add_row(f"[{SEVERITY_COLORS.get(f.severity, 'white')}]{f.severity.upper()}[/]",
-                      f.rule_id, f.cwe or "-", f.message[:70], f"{f.file.split('/')[-1]}:{f.line}")
+                      f.rule_id, f.cwe or "-", f.message[:70], f"{Path(f.file).name}:{f.line}")
         console.print(t)
     console.print()
     console.print("[bold]Fix your score:[/bold] pip install ube-foundation")

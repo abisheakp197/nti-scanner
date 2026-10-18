@@ -1,8 +1,7 @@
 """Base class for rules."""
 import ast
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 
 @dataclass
@@ -15,7 +14,7 @@ class Finding:
     file: str
     line: int
     column: int
-    cwe: Optional[str] = None
+    cwe: str | None = None
     remediation: str = ""
     code_snippet: str = ""
 
@@ -33,7 +32,7 @@ class RuleMeta:
 
 class BaseRule:
     meta: RuleMeta
-    def check(self, path: Path, tree: ast.AST, frameworks: List[str]) -> List[Finding]:
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
         raise NotImplementedError
     def make_finding(self, path: Path, node: ast.AST, message: str, snippet: str = "") -> Finding:
         return Finding(rule_id=self.meta.id, category=self.meta.category, severity=self.meta.severity,

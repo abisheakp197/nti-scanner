@@ -1,5 +1,4 @@
 """Tests for NTI-IDENT-001."""
-from pathlib import Path
 from nti_scanner.ast_analysis.parser import parse_python_file
 from nti_scanner.rules.nti.identity import IdentityRule
 
