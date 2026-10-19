@@ -1,4 +1,6 @@
 """CWE mapping tests."""
+from urllib.parse import urlparse
+
 from nti_scanner.cwe.mapping import CWE_NAMES, cwe_url
 
 
@@ -9,5 +11,7 @@ def test_cwe_map_contains_expected_keys():
 
 def test_cwe_url_generation():
     url = cwe_url("CWE-78")
-    assert "78" in url
-    assert "cwe.mitre.org" in url
+    parsed = urlparse(url)
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "cwe.mitre.org"
+    assert "78" in parsed.path
