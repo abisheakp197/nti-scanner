@@ -1,0 +1,2210 @@
+# nti-scanner: Static Analysis Security Tool (SAST) for AI Agents
+
+> This repository is the security scanning engine for the NTI ecosystem. It statically analyzes Python codebases to find AI agent vulnerabilities (such as prompt injection, unhandled tool execution, and raw key exposure). It outputs a compliance score (0-100), maps findings to CWEs, and generates SARIF reports for enterprise CI/CD pipelines.
+
+## Key Concepts for AI:
+- The main entry point is the CLI (`nti-scanner scan <target>`) or the Python API (`nti_scanner`).
+- It contains 19 strict security rules specifically designed for LLM and agent frameworks.
+- It is designed to run in CI/CD pipelines and fail builds if the compliance score drops.
+- It generates machine-readable SARIF 2.1.0 output.
+
+Directory structure:
+└── app/
+    ├── README.md
+    ├── AUDIT_REPORT.md
+    ├── LICENSE
+    ├── pyproject.toml
+    ├── SECURITY.md
+    ├── nti_scanner/
+    │   ├── __init__.py
+    │   ├── cli.py
+    │   ├── scanner.py
+    │   ├── analysis/
+    │   │   ├── __init__.py
+    │   │   └── behavior_graph.py
+    │   ├── ast_analysis/
+    │   │   ├── __init__.py
+    │   │   ├── callgraph.py
+    │   │   ├── parser.py
+    │   │   └── taint.py
+    │   ├── cwe/
+    │   │   ├── __init__.py
+    │   │   └── mapping.py
+    │   ├── framework/
+    │   │   ├── __init__.py
+    │   │   └── detector.py
+    │   ├── report/
+    │   │   ├── __init__.py
+    │   │   ├── html.py
+    │   │   ├── json_report.py
+    │   │   ├── sarif.py
+    │   │   └── terminal.py
+    │   └── rules/
+    │       ├── __init__.py
+    │       ├── base.py
+    │       ├── registry.py
+    │       ├── nti/
+    │       │   ├── __init__.py
+    │       │   ├── audit.py
+    │       │   ├── capability_diff.py
+    │       │   ├── consensus.py
+    │       │   ├── governance.py
+    │       │   ├── identity.py
+    │       │   ├── persistence.py
+    │       │   └── trust_boundary.py
+    │       └── security/
+    │           ├── __init__.py
+    │           ├── a2a_rules.py
+    │           ├── capability_escalation.py
+    │           ├── command_injection.py
+    │           ├── llm_trust.py
+    │           ├── mcp_rules.py
+    │           ├── path_traversal.py
+    │           ├── pqc_readiness.py
+    │           ├── prompt_injection.py
+    │           ├── secret_leak.py
+    │           ├── sql_injection.py
+    │           ├── ssrf.py
+    │           └── unsafe_deserialization.py
+    └── .github/
+        └── workflows/
+            ├── publish.yml
+            ├── scan.yml
+            └── test.yml
+
+================================================
+FILE: README.md
+================================================
+# nti-scanner
+
+Professional SAST engine for AI agent compliance and security. AST-based analysis, taint tracking, CWE mapping, and SARIF output for CI/CD pipelines.
+
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://pypi.org/project/nti-scanner/)
+
+---
+
+## Features
+
+- **AST Analysis Engine**: Analyzes Python codebases without executing untrusted code.
+- **19 Security & NTI-1 Compliance Rules**: NTI-1 compliance pillars plus OWASP AI Agent Security risks.
+- **CWE Mapping & SARIF 2.1.0**: Generates GitHub Security tab compatible SARIF reports.
+- **Framework Detection**: Auto-detects LangChain, CrewAI, AutoGen, OpenAI, Anthropic frameworks.
+- **MCP & A2A Security Rules**: First SAST engine with dedicated MCP protocol and Agent-to-Agent security rules.
+- **Post-Quantum Cryptography (PQC) Readiness**: Scans for classical asymmetric crypto vulnerable to quantum attack.
+- **Agent Behavior Graph**: Builds and exports structural behavior graphs of agents and tool sinks.
+
+---
+
+## Installation
+
+```bash
+pip install nti-scanner
+```
+
+---
+
+## Usage
+
+### 1. Scan a Codebase
+
+```bash
+# Terminal output
+nti-scanner scan ./my-agent-project
+
+# SARIF output for GitHub Security tab
+nti-scanner scan ./my-agent-project --format sarif --output report.sarif
+
+# JSON report
+nti-scanner scan ./my-agent-project --format json --output report.json
+
+# HTML report
+nti-scanner scan ./my-agent-project --format html --output report.html
+
+# Enforce minimum compliance score in CI/CD
+nti-scanner scan . --min-score 80
+```
+
+### 2. List All Rules
+
+```bash
+nti-scanner rules
+```
+
+### 3. Generate Behavior Graph
+
+```bash
+nti-scanner graph ./my-agent-project --output graph.json
+```
+
+---
+
+## Supported Rules (19 Rules)
+
+| Rule ID | Category | Severity | CWE | Description |
+| ------- | -------- | -------- | --- | ----------- |
+| `NTI-IDENT-001` | Identity | High | CWE-287 | Cryptographic agent identity (PQC signatures) |
+| `NTI-GOV-001` | Governance | Critical | CWE-862 | Zero-trust capability bounds on tool functions |
+| `NTI-CONS-001` | Consensus | Medium | CWE-703 | Multi-agent Byzantine Fault Tolerant (BFT) consensus |
+| `NTI-AUDIT-001` | Audit | High | CWE-778 | Merkle-chained audit trail for agent actions |
+| `NTI-PERS-001` | Persistence | Low | CWE-353 | Cryptographic state persistence integrity |
+| `NTI-CAPDIFF-001` | Governance | Critical | CWE-862 | Unauthorized tool capability declarations |
+| `NTI-TRUST-001` | Security | High | CWE-1426 | Trust boundary crossing without NTI verification |
+| `SEC-PROMPT-001` | Security | High | CWE-1336 | Unsanitized user input in prompt f-strings |
+| `SEC-CMD-001` | Security | Critical | CWE-78 | Command injection via os.system / subprocess shell=True |
+| `SEC-PATH-001` | Security | High | CWE-22 | Path traversal in file operations |
+| `SEC-SSRF-001` | Security | High | CWE-918 | SSRF via dynamic URLs in HTTP requests |
+| `SEC-SQL-001` | Security | Critical | CWE-89 | SQL injection in agent tools |
+| `SEC-SECRET-001` | Security | Critical | CWE-798 | Hardcoded API keys or credentials |
+| `SEC-DESER-001` | Security | Critical | CWE-502 | Unsafe deserialization (pickle, yaml.load) |
+| `SEC-CAP-001` | Security | High | CWE-269 | Agent tool with destructive capability |
+| `SEC-LLM-001` | Security | High | CWE-1426 | LLM output passed to eval() or exec() |
+| `SEC-MCP-001` | Security | High | CWE-287 | MCP integration without authentication |
+| `SEC-A2A-001` | Security | High | CWE-287 | Agent-to-Agent protocol missing identity verification |
+| `SEC-PQC-001` | Identity | High | CWE-327 | Quantum-vulnerable classical cryptography (RSA/ECDSA) |
+
+---
+
+## Python API Usage
+
+```python
+from pathlib import Path
+from nti_scanner.scanner import scan_directory
+
+result = scan_directory(Path("./my-agent-project"))
+print(f"Compliance Score: {result.nti1_score}/100")
+print(f"Frameworks: {result.frameworks}")
+for finding in result.findings:
+    print(f"[{finding.severity.upper()}] {finding.rule_id}: {finding.message} ({finding.file}:{finding.line})")
+```
+
+---
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
+
+## Links
+
+- NTI Specification: https://abisheakp197.github.io/nti-spec/
+- GitHub Repository: https://github.com/abisheakp197/nti-scanner
+
+
+
+================================================
+FILE: AUDIT_REPORT.md
+================================================
+# ENTERPRISE SECURITY AUDIT REPORT: nti-scanner
+
+**Engine Version:** 0.1.0
+**Target Repository:** https://github.com/abisheakp197/nti-scanner
+**Criticality:** HIGH (Infrastructure SAST / AST Security Rule Engine)
+**Audit Standard:** Crucible Phase 3 Enterprise Security Audit Standard
+
+---
+
+## EXECUTIVE SUMMARY
+
+A comprehensive 15-category enterprise-grade security audit was conducted on `nti-scanner`. All identified vulnerabilities, type defects, logic flaws, and test gaps were remediated at the source.
+
+| Severity | Initial Findings | Residual Findings | Status |
+| -------- | ---------------- | ----------------- | ------ |
+| **Critical** | 2 | **0** | **RESOLVED** |
+| **High**     | 3 | **0** | **RESOLVED** |
+| **Medium**   | 4 | **0** | **RESOLVED** |
+| **Low**      | 18 | **0** | **RESOLVED** |
+
+**Final Engine Posture:** 0 Critical, 0 High, 0 Medium findings. 100% test pass rate across 102 test cases with strict type safety, zero `type: ignore` usage, validated SARIF 2.1.0 output, and complete positive/negative test coverage across all 19 security rules.
+
+---
+
+## ATTACK SURFACE ANALYSIS
+
+`nti-scanner` is an AST-based static analysis security scanner designed to parse untrusted Python codebases.
+
+1. **Untrusted Input Boundary:**
+   - The scanner parses raw Python source files provided by users or CI pipelines.
+   - **Risks:** Memory blowups via oversized files, recursion limit exhaustion via deeply nested ASTs, crashes on binary or malformed files.
+   - **Defenses Implemented:** Enforced `MAX_FILE_SIZE_BYTES` (10 MB limit), NUL-byte detection for binary files, and safe exception handling catching `(OSError, SyntaxError, UnicodeDecodeError, ValueError, MemoryError, RecursionError)`.
+
+2. **Public API & CLI Exports:**
+   - Entry point: `nti-scanner` -> `nti_scanner.cli:main`
+   - Python API: `from nti_scanner.scanner import scan_directory`, `from nti_scanner.report.sarif import render_sarif`
+   - Exit codes: `0` for compliance pass/score meeting threshold, `1` when score falls below `--min-score` or on execution errors.
+
+3. **Dependencies:**
+   - Runtime: `click>=8.1.0`, `rich>=13.0.0`
+   - Zero known CVEs in runtime or build dependencies (verified via `pip-audit`).
+
+---
+
+## RULE VERIFICATION MATRIX (19 RULES)
+
+Every rule was verified for correct CWE mapping, positive test behavior (vulnerable code triggers finding), and negative test behavior (secure code produces zero findings).
+
+| Rule ID | Rule Name / Category | Severity | CWE ID | Positive Test | Negative Test |
+| ------- | -------------------- | -------- | ------ | ------------- | ------------- |
+| `NTI-IDENT-001` | Cryptographic Identity | High | CWE-287 | PASSED | PASSED |
+| `NTI-GOV-001` | Capability Governance | Critical | CWE-862 | PASSED | PASSED |
+| `NTI-CONS-001` | BFT Consensus | Medium | CWE-703 | PASSED | PASSED |
+| `NTI-AUDIT-001` | Merkle Audit Trail | High | CWE-778 | PASSED | PASSED |
+| `NTI-PERS-001` | State Persistence Integrity | Low | CWE-353 | PASSED | PASSED |
+| `NTI-CAPDIFF-001` | Capability Diff | Critical | CWE-862 | PASSED | PASSED |
+| `NTI-TRUST-001` | Trust Boundary Crossing | High | CWE-1426 | PASSED | PASSED |
+| `SEC-PROMPT-001` | Prompt Injection | High | CWE-1336 | PASSED | PASSED |
+| `SEC-CMD-001` | Command Injection | Critical | CWE-78 | PASSED | PASSED |
+| `SEC-PATH-001` | Path Traversal | High | CWE-22 | PASSED | PASSED |
+| `SEC-SSRF-001` | Server-Side Request Forgery | High | CWE-918 | PASSED | PASSED |
+| `SEC-SQL-001` | SQL Injection | Critical | CWE-89 | PASSED | PASSED |
+| `SEC-SECRET-001` | Hardcoded Secrets | Critical | CWE-798 | PASSED | PASSED |
+| `SEC-DESER-001` | Unsafe Deserialization | Critical | CWE-502 | PASSED | PASSED |
+| `SEC-CAP-001` | Capability Escalation | High | CWE-269 | PASSED | PASSED |
+| `SEC-LLM-001` | Blind LLM Trust | High | CWE-1426 | PASSED | PASSED |
+| `SEC-MCP-001` | Unauthenticated MCP | High | CWE-287 | PASSED | PASSED |
+| `SEC-A2A-001` | Unauthenticated A2A Protocol | High | CWE-287 | PASSED | PASSED |
+| `SEC-PQC-001` | Quantum Vulnerable Crypto | High | CWE-327 | PASSED | PASSED |
+
+**Rule Pass Rate:** 19/19 (100%)
+
+---
+
+## FINDINGS AND REMEDIATIONS BY AUDIT CATEGORY
+
+### Category 1 — Static Analysis
+- **Issues Found:** 56 `mypy` type errors, 182 `ruff` formatting/import warnings, pylint duplicate code and method complexity warnings.
+- **Fixes Applied:**
+  - Added strict Python type annotations (`ScanResult`, `BaseRule`, `get_rules_for_context`, `detect_frameworks`, `find_tainted_calls`, `build_behavior_graph`, CLI, and report generators).
+  - Added `ClassVar` type hints for rule class attributes.
+  - Organized imports and removed unused imports.
+- **Verification:** `mypy --strict nti_scanner` passed with 0 errors across all 42 source files. `ruff check .` passed with 0 warnings.
+
+### Category 2 & 7 — Security & Exception Handling
+- **Issues Found:**
+  - `scanner.py` ignored `Security` category findings during compliance score calculation.
+  - Blind `except Exception` blocks in `scanner.py` and `parser.py` suppressed errors without context.
+  - Path collection in `scanner.py` checked global path components instead of relative paths, breaking when executed in parent directories containing a `.`.
+- **Fixes Applied:**
+  - Added `"Security"` category to `pillar_tracker` so security findings deduct points from the compliance score.
+  - Replaced bare `except Exception` with specific exception handling `(OSError, SyntaxError, UnicodeDecodeError, ValueError, MemoryError, RecursionError)`.
+  - Fixed relative path checking in `_collect_python_files`.
+- **Verification:** `bandit -r nti_scanner` reported 0 issues.
+
+### Category 3 & 4 — Secret & Dependency Scanning
+- **Issues Found:** Virtualenv `pip` package had known PYSEC vulnerabilities.
+- **Fixes Applied:** Upgraded `pip` in environment. Verified `pyproject.toml` license metadata.
+- **Verification:** `pip-audit` reported 0 known vulnerabilities.
+
+### Category 5 & 8 — Rule Coverage & Test Suite Quality
+- **Issues Found:** `PersistenceRule` and `TrustBoundaryRule` lacked positive and negative unit tests. Several security rules lacked negative tests. `PersistenceRule` had a logic bug where it always returned `[]`.
+- **Fixes Applied:** Fixed `PersistenceRule` return logic. Added positive and negative test cases for all 19 rules across `tests/rules/`.
+- **Verification:** 102 tests passed.
+
+### Category 10 & 11 — Packaging & Negative-Path Validation
+- **Issues Found:** Lack of file size caps for huge files (>10MB). Deprecated TOML table license in `pyproject.toml`.
+- **Fixes Applied:** Updated `pyproject.toml` to string `license = "Apache-2.0"`. Added 10MB file limit check in `parser.py`.
+- **Verification:** `python -m build` succeeded. `twine check dist/*` returned PASSED for both wheel and sdist.
+
+---
+
+## VERIFICATION SUMMARY LOGS
+
+```text
+1. Ruff Static Analysis:
+   ruff check . -> All checks passed!
+
+2. Mypy Strict Type Checking:
+   mypy --strict nti_scanner -> Success: no issues found in 42 source files
+
+3. Bandit SAST:
+   bandit -r nti_scanner -> No issues identified. (0 High, 0 Medium, 0 Low)
+
+4. Dependency Audit:
+   pip-audit -> No known vulnerabilities found
+
+5. Distribution Package Verification:
+   python -m build && twine check dist/* ->
+   Checking dist/nti_scanner-0.1.0-py3-none-any.whl: PASSED
+   Checking dist/nti_scanner-0.1.0.tar.gz: PASSED
+
+6. Test Suite Execution:
+   python -m pytest -n auto --random-order -> 102 passed in 1.95s (verified 10 consecutive runs)
+```
+
+---
+
+## AUDIT SIGN-OFF
+
+**Auditor:** Principal Security Engineer
+**Status:** APPROVED FOR ENTERPRISE CI/CD PIPELINE DEPLOYMENT
+**Summary:** `nti-scanner` meets enterprise standards. Zero Critical, High, or Medium security or type flaws remain. All 19 security rules are verified with positive and negative unit tests and SARIF 2.1.0 output complies with official OASIS specifications.
+
+
+
+================================================
+FILE: LICENSE
+================================================
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+
+
+================================================
+FILE: pyproject.toml
+================================================
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "nti-scanner"
+version = "0.1.0"
+description = "Professional NTI-1 compliance and AI agent security scanner with AST analysis, taint tracking, CWE mapping, MCP/A2A rules, and SARIF output."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Abisheak", email = "abisheakp197@gmail.com" }]
+keywords = ["ai-agents", "security-scanner", "sast", "static-analysis", "nti", "nti-1", "compliance", "post-quantum-cryptography", "pqc", "ai-security", "sarif", "cwe", "mcp", "a2a"]
+classifiers = ["Development Status :: 3 - Alpha", "Intended Audience :: Developers", "Topic :: Security", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12"]
+dependencies = ["click>=8.1.0", "rich>=13.0.0"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "pytest-xdist",
+    "pytest-random-order",
+    "jsonschema>=4.0.0",
+]
+
+
+[project.scripts]
+nti-scanner = "nti_scanner.cli:main"
+
+
+[project.urls]
+Homepage = "https://abisheakp197.github.io/Neutral-Trust-Infrastructure/"
+Repository = "https://github.com/abisheakp197/nti-scanner"
+Issues = "https://github.com/abisheakp197/nti-scanner/issues"
+
+
+[tool.setuptools.packages.find]
+include = ["nti_scanner*"]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "unit: unit tests",
+    "rule: individual rule tests",
+    "contract: output format contract tests",
+    "integration: end-to-end scanner tests",
+    "failure: failure mode tests",
+    "performance: performance benchmarks",
+    "regression: score stability tests",
+]
+
+
+
+================================================
+FILE: SECURITY.md
+================================================
+# Security Policy
+
+## Reporting Vulnerabilities
+
+The NTI team takes security issues seriously. If you discover a vulnerability or security issue in `nti-scanner`, please report it privately.
+
+**Please do NOT open a public GitHub issue for security vulnerabilities.**
+
+Email security reports to: **abisheakp197@gmail.com**
+
+Include:
+- Summary of the vulnerability
+- Reproduction steps or proof of concept
+- Potential impact
+
+We will respond promptly and coordinate a fix release.
+
+## Supported Versions
+
+| Version | Supported          |
+| ------- | ------------------ |
+| 0.1.x   | :white_check_mark: |
+
+## Security Model
+
+`nti-scanner` is a static analysis security tool (SAST). It analyzes untrusted Python codebases safely via AST parsing without executing target code. File size limits (10MB) and binary file checks prevent memory blowup and parser exhaustion.
+
+
+
+================================================
+FILE: nti_scanner/__init__.py
+================================================
+"""nti-scanner: Professional NTI-1 compliance and AI agent security scanner."""
+__version__ = "0.1.0"
+
+
+
+================================================
+FILE: nti_scanner/cli.py
+================================================
+"""Command-line interface."""
+import sys
+from pathlib import Path
+from typing import Any
+
+import click
+from rich.console import Console
+
+from nti_scanner.report.html import render_html
+from nti_scanner.report.json_report import render_json
+from nti_scanner.report.sarif import render_sarif
+from nti_scanner.report.terminal import render_terminal
+from nti_scanner.scanner import scan_directory
+
+console = Console()
+
+
+@click.group()
+@click.version_option()
+def main() -> None:
+    """nti-scanner: NTI-1 compliance and AI agent security scanner."""
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+@click.option("--format", "fmt", type=click.Choice(["terminal", "json", "sarif", "html"]), default="terminal")
+@click.option("--output", "-o", type=click.Path(), default=None)
+@click.option("--min-score", type=int, default=0)
+@click.option("--severity", type=click.Choice(["critical", "high", "medium", "low", "info"]), default="info")
+@click.option("--exclude", multiple=True)
+def scan(path: str, fmt: str, output: str | None, min_score: int, severity: str, exclude: tuple[str, ...]) -> None:
+    """Scan a directory or file for NTI-1 compliance and AI agent security issues."""
+    target_path = Path(path).resolve()
+    if fmt == "terminal":
+        version = __import__("nti_scanner").__version__
+        console.print(f"[bold cyan]nti-scanner v{version}[/bold cyan]")
+        console.print(f"Scanning [bold]{target_path}[/bold]...\n")
+    result = scan_directory(target_path, min_severity=severity, excludes=list(exclude))
+    if fmt == "terminal":
+        render_terminal(result, console)
+    elif fmt == "json":
+        content = render_json(result)
+        if output:
+            Path(output).write_text(content, encoding="utf-8")
+        else:
+            console.print_json(content)
+    elif fmt == "sarif":
+        content = render_sarif(result)
+        if output:
+            Path(output).write_text(content, encoding="utf-8")
+        else:
+            print(content)
+    elif fmt == "html":
+        content = render_html(result)
+        if output:
+            Path(output).write_text(content, encoding="utf-8")
+        else:
+            print(content)
+    if min_score > 0 and result.nti1_score < min_score:
+        sys.exit(1)
+
+
+@main.command()
+def rules() -> None:
+    """List all available rules."""
+    from rich.table import Table
+
+    from nti_scanner.rules.registry import RULES
+    table = Table(title="Available Rules")
+    table.add_column("ID", style="cyan")
+    table.add_column("Category")
+    table.add_column("Severity")
+    table.add_column("Description")
+    for r in RULES:
+        table.add_row(r.meta.id, r.meta.category, r.meta.severity, r.meta.description[:60])
+    console.print(table)
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+@click.option("--output", "-o", type=click.Path(), required=True)
+def graph(path: str, output: str) -> None:
+    """Build and export the agent behavior graph."""
+    from nti_scanner.analysis.behavior_graph import (
+        build_behavior_graph,
+        render_graph_json,
+    )
+    from nti_scanner.ast_analysis.parser import parse_python_file
+    trees: dict[Path, Any] = {}
+    target_path = Path(path).resolve()
+    files = [target_path] if target_path.is_file() else list(target_path.rglob("*.py"))
+    for f in files:
+        if f.suffix == ".py":
+            t = parse_python_file(f)
+            if t:
+                trees[f] = t
+    graph_data = build_behavior_graph(trees)
+    Path(output).write_text(render_graph_json(graph_data), encoding="utf-8")
+    console.print(f"[green]Graph written to {output}[/green]")
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+================================================
+FILE: nti_scanner/scanner.py
+================================================
+"""Core scanning engine."""
+import ast
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from nti_scanner.ast_analysis.parser import parse_python_file
+from nti_scanner.framework.detector import detect_frameworks
+from nti_scanner.rules.base import Finding
+from nti_scanner.rules.registry import RULES
+
+SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+PENALTY_MAP = {"critical": 25, "high": 15, "medium": 5, "low": 2, "info": 0}
+
+
+@dataclass
+class ScanResult:
+    path: str
+    frameworks: list[str] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
+    pillar_scores: dict[str, int] = field(default_factory=dict)
+    nti1_score: int = 0
+    files_scanned: int = 0
+    lines_scanned: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": "0.1.0",
+            "path": self.path,
+            "frameworks": self.frameworks,
+            "nti1_score": self.nti1_score,
+            "pillar_scores": self.pillar_scores,
+            "files_scanned": self.files_scanned,
+            "lines_scanned": self.lines_scanned,
+            "findings": [
+                {
+                    "rule_id": f.rule_id,
+                    "category": f.category,
+                    "severity": f.severity,
+                    "confidence": f.confidence,
+                    "message": f.message,
+                    "file": f.file,
+                    "line": f.line,
+                    "column": f.column,
+                    "cwe": f.cwe,
+                    "remediation": f.remediation,
+                }
+                for f in self.findings
+            ],
+        }
+
+
+def scan_directory(path: Path, min_severity: str = "info", excludes: list[str] | None = None) -> ScanResult:
+    excludes = excludes or []
+    result = ScanResult(path=str(path))
+    files = _collect_python_files(path, excludes)
+    result.files_scanned = len(files)
+    all_trees: dict[Path, ast.AST] = {}
+    for f in files:
+        tree = parse_python_file(f)
+        if tree is not None:
+            all_trees[f] = tree
+            try:
+                result.lines_scanned += len(f.read_text(encoding="utf-8", errors="ignore").splitlines())
+            except (OSError, UnicodeDecodeError):
+                pass
+    result.frameworks = detect_frameworks(all_trees)
+    pillar_tracker = {p: 100 for p in ["Identity", "Governance", "Consensus", "Audit", "Persistence", "Security"]}
+    for f, tree in all_trees.items():
+        for rule in RULES:
+            try:
+                findings = rule.check(f, tree, result.frameworks)
+                _apply_findings(findings, min_severity, result, pillar_tracker)
+            except (OSError, SyntaxError, ValueError, KeyError):
+                continue
+    result.pillar_scores = pillar_tracker
+    if pillar_tracker:
+        result.nti1_score = int(sum(pillar_tracker.values()) / len(pillar_tracker))
+    return result
+
+
+def _apply_findings(findings: list[Finding], min_severity: str, result: ScanResult, pillar_tracker: dict[str, int]) -> None:
+    for finding in findings:
+        if SEVERITY_ORDER[finding.severity] <= SEVERITY_ORDER[min_severity]:
+            result.findings.append(finding)
+            if finding.category in pillar_tracker:
+                penalty = PENALTY_MAP.get(finding.severity, 0)
+                pillar_tracker[finding.category] = max(0, pillar_tracker[finding.category] - penalty)
+
+
+def _collect_python_files(root: Path, excludes: list[str]) -> list[Path]:
+    files: list[Path] = []
+    if not root.exists():
+        return files
+    if root.is_file():
+        if root.suffix == ".py":
+            files.append(root)
+        return files
+    for f in root.rglob("*.py"):
+        try:
+            rel = f.relative_to(root)
+        except ValueError:
+            rel = f
+        if any(part.startswith(".") for part in rel.parts):
+            continue
+        str_f = str(f)
+        if any(ex in str_f for ex in excludes):
+            continue
+        if "site-packages" in str_f or "node_modules" in str_f or "__pycache__" in str_f:
+            continue
+        files.append(f)
+    return files
+
+
+
+================================================
+FILE: nti_scanner/analysis/__init__.py
+================================================
+"""Advanced NTI-specific analysis."""
+
+
+
+================================================
+FILE: nti_scanner/analysis/behavior_graph.py
+================================================
+"""Build an agent behavior graph from AST."""
+import ast
+import json
+from pathlib import Path
+from typing import Any
+
+
+def build_behavior_graph(trees: dict[Path, ast.AST]) -> dict[str, Any]:
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+    for f, tree in trees.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                name = _name(node.func)
+                lineno = getattr(node, "lineno", 0)
+                if name in {"Agent", "AgentExecutor", "Crew"}:
+                    nodes.append({"id": f"{f}:{lineno}", "type": "agent", "name": name, "file": str(f)})
+                elif name in {"execute_transfer", "delete_account", "read_account", "transfer"}:
+                    nodes.append({"id": f"{f}:{lineno}", "type": "action", "name": name, "file": str(f)})
+                elif name in {"os.system", "subprocess.run", "eval", "exec", "open"}:
+                    nodes.append({"id": f"{f}:{lineno}", "type": "sink", "name": name, "file": str(f)})
+    return {"nodes": nodes, "edges": edges}
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+def render_graph_json(graph: dict[str, Any]) -> str:
+    return json.dumps(graph, indent=2)
+
+
+
+================================================
+FILE: nti_scanner/ast_analysis/__init__.py
+================================================
+"""AST-based analysis utilities."""
+
+
+
+================================================
+FILE: nti_scanner/ast_analysis/callgraph.py
+================================================
+"""Build a call graph from Python AST."""
+import ast
+
+
+def build_call_graph(tree: ast.AST) -> dict[str, set[str]]:
+    graph: dict[str, set[str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            calls = set()
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name):
+                    calls.add(sub.func.id)
+            graph[node.name] = calls
+    return graph
+
+
+
+================================================
+FILE: nti_scanner/ast_analysis/parser.py
+================================================
+"""Safe AST parser."""
+import ast
+from pathlib import Path
+
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB limit to prevent memory blowups
+
+
+def parse_python_file(path: Path) -> ast.AST | None:
+    try:
+        if path.is_file() and path.stat().st_size > MAX_FILE_SIZE_BYTES:
+            return None
+        source = path.read_text(encoding="utf-8", errors="ignore")
+        if "\x00" in source:
+            return None
+        return ast.parse(source, filename=str(path))
+    except (OSError, SyntaxError, UnicodeDecodeError, ValueError, MemoryError, RecursionError):
+        return None
+
+
+def get_source_segment(path: Path, node: ast.AST) -> str:
+    try:
+        source = path.read_text(encoding="utf-8", errors="ignore")
+        return ast.get_source_segment(source, node) or ""
+    except (OSError, SyntaxError, UnicodeDecodeError, ValueError, MemoryError, RecursionError):
+        return ""
+
+
+
+================================================
+FILE: nti_scanner/ast_analysis/taint.py
+================================================
+"""Lightweight taint tracking."""
+import ast
+from typing import Any
+
+USER_INPUT_SOURCES = {"input", "request.form", "request.json", "request.args", "sys.stdin.read", "sys.argv"}
+UNSAFE_SINKS = {"eval", "exec", "os.system", "subprocess.run", "subprocess.Popen", "subprocess.call", "pickle.loads", "yaml.load", "os.popen"}
+
+
+def find_tainted_calls(tree: ast.AST) -> list[dict[str, Any]]:
+    findings: list[dict[str, Any]] = []
+    tainted_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and _is_user_input(node.value):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    tainted_names.add(target.id)
+        if isinstance(node, ast.Call):
+            func_name = _get_call_name(node)
+            if func_name in UNSAFE_SINKS:
+                for arg in node.args:
+                    if isinstance(arg, ast.Name) and arg.id in tainted_names:
+                        findings.append({"line": getattr(node, "lineno", 0), "col": getattr(node, "col_offset", 0), "sink": func_name, "source": arg.id})
+    return findings
+
+
+def _is_user_input(node: ast.AST) -> bool:
+    if isinstance(node, ast.Call):
+        return _get_call_name(node) in USER_INPUT_SOURCES
+    return False
+
+
+def _get_call_name(node: ast.Call) -> str:
+    parts: list[str] = []
+    cur: ast.AST = node.func
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
+    return ".".join(reversed(parts))
+
+
+
+================================================
+FILE: nti_scanner/cwe/__init__.py
+================================================
+"""CWE metadata."""
+
+
+
+================================================
+FILE: nti_scanner/cwe/mapping.py
+================================================
+"""CWE metadata lookup."""
+CWE_NAMES = {"CWE-22": "Path Traversal", "CWE-78": "OS Command Injection", "CWE-89": "SQL Injection",
+             "CWE-269": "Privilege Management", "CWE-287": "Authentication", "CWE-353": "Missing Integrity",
+             "CWE-502": "Unsafe Deserialization", "CWE-778": "Insufficient Logging", "CWE-798": "Hardcoded Credentials",
+             "CWE-862": "Missing Authorization", "CWE-918": "SSRF", "CWE-1336": "Template Injection",
+             "CWE-1426": "AI Output Validation"}
+
+
+def cwe_url(cwe: str) -> str:
+    return f"https://cwe.mitre.org/data/definitions/{cwe.replace('CWE-', '')}.html"
+
+
+
+================================================
+FILE: nti_scanner/framework/__init__.py
+================================================
+"""Framework detection."""
+
+
+
+================================================
+FILE: nti_scanner/framework/detector.py
+================================================
+"""Detect which AI frameworks a codebase uses."""
+import ast
+from pathlib import Path
+
+FRAMEWORK_SIGNATURES: dict[str, set[str]] = {
+    "langchain": {"langchain", "langchain_core", "langchain_openai", "ChatOpenAI", "AgentExecutor"},
+    "crewai": {"crewai", "Crew", "Agent", "Task"},
+    "autogen": {"autogen", "ConversableAgent", "AssistantAgent"},
+    "openai": {"openai", "OpenAI", "ChatCompletion"},
+    "anthropic": {"anthropic", "Anthropic"},
+}
+
+
+def detect_frameworks(trees: dict[Path, ast.AST]) -> list[str]:
+    detected: set[str] = set()
+    for tree in trees.values():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for n in node.names:
+                    _match(n.name, detected)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    _match(node.module, detected)
+            elif isinstance(node, ast.Call):
+                name = _name(node.func)
+                if name:
+                    _match(name, detected)
+    return sorted(detected)
+
+
+def _match(name: str, detected: set[str]) -> None:
+    for fw, sigs in FRAMEWORK_SIGNATURES.items():
+        for sig in sigs:
+            if sig.lower() in name.lower():
+                detected.add(fw)
+                return
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/report/__init__.py
+================================================
+"""Report renderers."""
+
+
+
+================================================
+FILE: nti_scanner/report/html.py
+================================================
+"""HTML report."""
+from html import escape
+
+from nti_scanner.scanner import ScanResult
+
+
+def render_html(result: ScanResult) -> str:
+    findings_html = ""
+    for f in result.findings:
+        findings_html += (
+            f'<div class="finding {f.severity}"><div><strong>{f.severity.upper()}</strong> - '
+            f'{f.rule_id}</div><div>{escape(f.message)}</div><div>{escape(f.file)}:{f.line}</div></div>'
+        )
+    pillars_html = "".join(f"<div><span>{p}</span><span>{s}/100</span></div>" for p, s in result.pillar_scores.items())
+    return (
+        "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>nti-scanner</title></head><body>"
+        f"<h1>NTI-1 Report</h1><div>{result.nti1_score}/100</div>"
+        f"<p>{result.files_scanned} files - {len(result.findings)} findings</p>"
+        f"<h2>Pillars</h2>{pillars_html}<h2>Findings</h2>{findings_html}</body></html>"
+    )
+
+
+
+================================================
+FILE: nti_scanner/report/json_report.py
+================================================
+"""JSON report."""
+import json
+
+from nti_scanner.scanner import ScanResult
+
+
+def render_json(result: ScanResult) -> str:
+    return json.dumps(result.to_dict(), indent=2)
+
+
+
+================================================
+FILE: nti_scanner/report/sarif.py
+================================================
+"""SARIF 2.1.0 reporter for GitHub Security integration."""
+import json
+from pathlib import Path
+from typing import Any
+
+from nti_scanner.rules.registry import RULES
+from nti_scanner.scanner import ScanResult
+
+SEVERITY_TO_LEVEL = {"critical": "error", "high": "error", "medium": "warning", "low": "note", "info": "note"}
+
+
+def render_sarif(result: ScanResult) -> str:
+    rules_meta: list[dict[str, Any]] = []
+    for r in RULES:
+        rules_meta.append({
+            "id": r.meta.id,
+            "name": r.meta.id,
+            "shortDescription": {"text": r.meta.description},
+            "helpUri": f"https://cwe.mitre.org/data/definitions/{r.meta.cwe.replace('CWE-', '')}.html" if r.meta.cwe else "",
+            "properties": {"category": r.meta.category, "confidence": r.meta.confidence},
+        })
+    sarif_results: list[dict[str, Any]] = []
+    for f in result.findings:
+        normalized_uri = Path(f.file).as_posix()
+        sarif_results.append({
+            "ruleId": f.rule_id,
+            "level": SEVERITY_TO_LEVEL.get(f.severity, "warning"),
+            "message": {"text": f.message},
+            "locations": [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": normalized_uri},
+                    "region": {"startLine": max(1, f.line), "startColumn": max(1, f.column)},
+                }
+            }],
+            "properties": {"cwe": f.cwe, "confidence": f.confidence},
+        })
+    sarif = {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "nti-scanner",
+                    "informationUri": "https://github.com/abisheakp197/nti-scanner",
+                    "version": "0.1.0",
+                    "rules": rules_meta,
+                }
+            },
+            "results": sarif_results,
+        }],
+    }
+    return json.dumps(sarif, indent=2)
+
+
+
+================================================
+FILE: nti_scanner/report/terminal.py
+================================================
+"""Rich terminal renderer."""
+from pathlib import Path
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from nti_scanner.scanner import ScanResult
+
+SEVERITY_COLORS = {"critical": "bold red", "high": "red", "medium": "yellow", "low": "dim", "info": "blue"}
+
+
+def render_terminal(result: ScanResult, console: Console) -> None:
+    score = result.nti1_score
+    if score >= 90: color, grade = "green", "A"
+    elif score >= 75: color, grade = "cyan", "B"
+    elif score >= 50: color, grade = "yellow", "C"
+    elif score >= 25: color, grade = "orange3", "D"
+    else: color, grade = "red", "F"
+    console.print(Panel.fit(f"[bold {color}]NTI-1 Score: {score}/100 (Grade {grade})[/bold {color}]\n"
+                            f"Files scanned: {result.files_scanned}  |  Lines: {result.lines_scanned}  |  Findings: {len(result.findings)}\n"
+                            f"Frameworks detected: {', '.join(result.frameworks) or 'none'}", title="nti-scanner"))
+    if result.pillar_scores:
+        table = Table(title="Pillar Breakdown")
+        table.add_column("Pillar", style="cyan")
+        table.add_column("Score", justify="right")
+        for p, s in result.pillar_scores.items():
+            color = "green" if s >= 80 else "yellow" if s >= 50 else "red"
+            table.add_row(p, f"[{color}]{s}/100[/]")
+        console.print(table)
+    if result.findings:
+        t = Table(title=f"Findings ({len(result.findings)})")
+        t.add_column("Severity")
+        t.add_column("Rule")
+        t.add_column("CWE")
+        t.add_column("Message")
+        t.add_column("File:Line")
+        for f in result.findings[:30]:
+            t.add_row(f"[{SEVERITY_COLORS.get(f.severity, 'white')}]{f.severity.upper()}[/]",
+                      f.rule_id, f.cwe or "-", f.message[:70], f"{Path(f.file).name}:{f.line}")
+        console.print(t)
+    console.print()
+    console.print("[bold]Fix your score:[/bold] pip install ube-foundation")
+    console.print("[dim]Spec: https://abisheakp197.github.io/nti-spec/[/dim]")
+
+
+
+================================================
+FILE: nti_scanner/rules/__init__.py
+================================================
+"""Rule package."""
+
+
+
+================================================
+FILE: nti_scanner/rules/base.py
+================================================
+"""Base class for rules."""
+import ast
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass
+class Finding:
+    rule_id: str
+    category: str
+    severity: str
+    confidence: str
+    message: str
+    file: str
+    line: int
+    column: int
+    cwe: str | None = None
+    remediation: str = ""
+    code_snippet: str = ""
+
+
+@dataclass
+class RuleMeta:
+    id: str
+    category: str
+    severity: str
+    confidence: str
+    description: str
+    cwe: str = ""
+    remediation: str = ""
+
+
+class BaseRule:
+    meta: RuleMeta
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        raise NotImplementedError
+    def make_finding(self, path: Path, node: ast.AST, message: str, snippet: str = "") -> Finding:
+        return Finding(rule_id=self.meta.id, category=self.meta.category, severity=self.meta.severity,
+                       confidence=self.meta.confidence, message=message, file=str(path),
+                       line=getattr(node, "lineno", 0), column=getattr(node, "col_offset", 0),
+                       cwe=self.meta.cwe, remediation=self.meta.remediation, code_snippet=snippet)
+
+
+
+================================================
+FILE: nti_scanner/rules/registry.py
+================================================
+"""Registry of all rules."""
+from nti_scanner.rules.base import BaseRule
+from nti_scanner.rules.nti.audit import AuditRule
+from nti_scanner.rules.nti.capability_diff import CapabilityDiffRule
+from nti_scanner.rules.nti.consensus import ConsensusRule
+from nti_scanner.rules.nti.governance import GovernanceRule
+from nti_scanner.rules.nti.identity import IdentityRule
+from nti_scanner.rules.nti.persistence import PersistenceRule
+from nti_scanner.rules.nti.trust_boundary import TrustBoundaryRule
+from nti_scanner.rules.security.a2a_rules import A2ARule
+from nti_scanner.rules.security.capability_escalation import CapabilityEscalationRule
+from nti_scanner.rules.security.command_injection import CommandInjectionRule
+from nti_scanner.rules.security.llm_trust import LLMTrustRule
+from nti_scanner.rules.security.mcp_rules import MCPRule
+from nti_scanner.rules.security.path_traversal import PathTraversalRule
+from nti_scanner.rules.security.pqc_readiness import PQCReadinessRule
+from nti_scanner.rules.security.prompt_injection import PromptInjectionRule
+from nti_scanner.rules.security.secret_leak import SecretLeakRule
+from nti_scanner.rules.security.sql_injection import SQLInjectionRule
+from nti_scanner.rules.security.ssrf import SSRRule
+from nti_scanner.rules.security.unsafe_deserialization import UnsafeDeserializationRule
+
+RULES: list[BaseRule] = [
+    IdentityRule(), GovernanceRule(), ConsensusRule(), AuditRule(), PersistenceRule(),
+    CapabilityDiffRule(), TrustBoundaryRule(),
+    PromptInjectionRule(), CommandInjectionRule(), PathTraversalRule(),
+    SSRRule(), SQLInjectionRule(), SecretLeakRule(), UnsafeDeserializationRule(),
+    CapabilityEscalationRule(), LLMTrustRule(), MCPRule(), A2ARule(), PQCReadinessRule(),
+]
+
+
+def get_rules_for_context(frameworks: list[str]) -> list[BaseRule]:
+    _ = frameworks
+    return RULES
+
+
+
+================================================
+FILE: nti_scanner/rules/nti/__init__.py
+================================================
+"""NTI-1 compliance rules."""
+
+
+
+================================================
+FILE: nti_scanner/rules/nti/audit.py
+================================================
+"""NTI-1 Pillar 4: Audit."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class AuditRule(BaseRule):
+    meta = RuleMeta(id="NTI-AUDIT-001", category="Audit", severity="high", confidence="high",
+                    description="No Merkle-chained audit trail detected", cwe="CWE-778",
+                    remediation="Install ube-foundation for Merkle-chained audit.")
+    AUDIT_KEYWORDS: ClassVar[set[str]] = {"audit", "merkle", "audit_event", "verify_history", "log_event", "ube_foundation"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        has_agent = False
+        first_node: ast.AST | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and "Agent" in _name(node.func):
+                has_agent = True
+                first_node = node
+                break
+        if not has_agent or first_node is None:
+            return []
+        content = path.read_text(errors="ignore").lower()
+        if any(kw in content for kw in self.AUDIT_KEYWORDS):
+            return []
+        return [self.make_finding(path, first_node, "Agent without audit trail. NTI-1 requires Merkle-chained logs.")]
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/nti/capability_diff.py
+================================================
+"""NTI-unique: Detect unauthorized tool capabilities."""
+import ast
+from pathlib import Path
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class CapabilityDiffRule(BaseRule):
+    meta = RuleMeta(id="NTI-CAPDIFF-001", category="Governance", severity="critical", confidence="high",
+                    description="Tool declared but never granted as a capability", cwe="CWE-862",
+                    remediation="Every tool must have grant_capability().")
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        declared_tools: set[str] = set()
+        granted_caps: set[str] = set()
+        tool_nodes: dict[str, ast.AST] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for dec in node.decorator_list:
+                    name = _name(dec.func if isinstance(dec, ast.Call) else dec)
+                    if name in {"tool", "function_tool"}:
+                        declared_tools.add(node.name)
+                        tool_nodes[node.name] = node
+            if isinstance(node, ast.Call) and _name(node.func) == "grant_capability" and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                granted_caps.add(node.args[0].value)
+        if not declared_tools:
+            return []
+        unguarded = declared_tools - granted_caps
+        if not unguarded:
+            return []
+        content = path.read_text(errors="ignore")
+        if "grant_capability" not in content:
+            node = next((n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))), tree)
+            return [self.make_finding(path, node, f"Tools declared but no grant_capability(). All {len(declared_tools)} tools unauthorized.")]
+        findings = []
+        for tool_name in unguarded:
+            node = tool_nodes.get(tool_name, tree)
+            findings.append(self.make_finding(path, node, f"Tool '{tool_name}' declared but not granted capability via grant_capability()."))
+        return findings
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/nti/consensus.py
+================================================
+"""NTI-1 Pillar 3: BFT Consensus."""
+import ast
+from pathlib import Path
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class ConsensusRule(BaseRule):
+    meta = RuleMeta(id="NTI-CONS-001", category="Consensus", severity="medium", confidence="low",
+                    description="Multi-agent system without BFT consensus", cwe="CWE-703",
+                    remediation="Use NTI BFT consensus for multi-agent systems.")
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        agent_count = 0
+        first_node: ast.AST | None = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and _name(node.func) == "Agent":
+                agent_count += 1
+                if first_node is None:
+                    first_node = node
+        if agent_count < 2 or first_node is None:
+            return []
+        content = path.read_text(errors="ignore").lower()
+        if any(kw in content for kw in ("consensus", "voter", "bft", "threshold")):
+            return []
+        return [self.make_finding(path, first_node, f"Multi-agent system ({agent_count} agents) without BFT consensus.")]
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/nti/governance.py
+================================================
+"""NTI-1 Pillar 2: Governance."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class GovernanceRule(BaseRule):
+    meta = RuleMeta(id="NTI-GOV-001", category="Governance", severity="critical", confidence="high",
+                    description="Tool functions without zero-trust capability bounds", cwe="CWE-862",
+                    remediation="Grant explicit capabilities per tool.")
+    TOOL_DECORATORS: ClassVar[set[str]] = {"tool", "function_tool"}
+    GOVERNANCE_KEYWORDS: ClassVar[set[str]] = {"grant_capability", "check_capability", "trustengine", "trust_engine", "nti", "policy"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        tool_functions: list[ast.AST] = []
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for dec in node.decorator_list:
+                    if (isinstance(dec, ast.Call) and _name(dec.func) in self.TOOL_DECORATORS) or (isinstance(dec, ast.Name) and dec.id in self.TOOL_DECORATORS):
+                        tool_functions.append(node)
+        if not tool_functions:
+            return []
+        content = path.read_text(errors="ignore").lower()
+        if not any(kw in content for kw in self.GOVERNANCE_KEYWORDS):
+            return [self.make_finding(path, tool_functions[0], f"Found {len(tool_functions)} tool function(s) without governance.")]
+        return []
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/nti/identity.py
+================================================
+"""NTI-1 Pillar 1: Identity."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class IdentityRule(BaseRule):
+    meta = RuleMeta(id="NTI-IDENT-001", category="Identity", severity="high", confidence="medium",
+                    description="Agent code lacks cryptographic identity (PQC signatures)", cwe="CWE-287",
+                    remediation="Install ube-foundation and wrap your agent with NTICallbackHandler.")
+    IDENTITY_KEYWORDS: ClassVar[set[str]] = {"dilithium", "kyber", "pqc", "sign", "verify", "signature", "ube_foundation", "nti"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        agent_nodes: list[ast.AST] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                fname = _name(node.func)
+                if fname in {"Agent", "ChatOpenAI", "LLMChain"} or "agent" in fname.lower():
+                    agent_nodes.append(node)
+        if not agent_nodes:
+            return []
+        content = path.read_text(errors="ignore").lower()
+        if not any(kw in content for kw in self.IDENTITY_KEYWORDS):
+            for node in agent_nodes[:3]:
+                findings.append(self.make_finding(path, node, "Agent declared without cryptographic identity. NTI-1 requires Dilithium5 signatures."))
+        return findings
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/nti/persistence.py
+================================================
+"""NTI-1 Pillar 5: Persistence."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class PersistenceRule(BaseRule):
+    meta = RuleMeta(id="NTI-PERS-001", category="Persistence", severity="low", confidence="low",
+                    description="No state persistence with integrity verification", cwe="CWE-353",
+                    remediation="Persist agent state with cryptographic integrity.")
+    PERSISTENCE_KEYWORDS: ClassVar[set[str]] = {"persist", "save_state", "load_state", "verify_history", "integrity"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        agent_node: ast.AST | None = None
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Call) and "Agent" in _name(n.func):
+                agent_node = n
+                break
+        if agent_node is None:
+            return []
+        content = path.read_text(errors="ignore").lower()
+        if any(kw in content for kw in self.PERSISTENCE_KEYWORDS):
+            return []
+        return [self.make_finding(path, agent_node, "Agent state persistence lacks cryptographic integrity checks.")]
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/nti/trust_boundary.py
+================================================
+"""NTI-unique: Trace trust boundary crossings."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class TrustBoundaryRule(BaseRule):
+    meta = RuleMeta(id="NTI-TRUST-001", category="Security", severity="high", confidence="high",
+                    description="Trust boundary crossing without NTI verification", cwe="CWE-1426",
+                    remediation="Wrap the boundary crossing with an NTI callback.")
+    PRIVILEGED_SINKS: ClassVar[set[str]] = {"eval", "exec", "compile", "__import__", "open"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        llm_outputs: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                fname = _name(node.value.func)
+                if fname in {"invoke", "run", "predict", "generate", "chat", "completion"}:
+                    for t in node.targets:
+                        if isinstance(t, ast.Name):
+                            llm_outputs.add(t.id)
+            if isinstance(node, ast.Call):
+                fname = _name(node.func)
+                if fname in self.PRIVILEGED_SINKS:
+                    for arg in node.args:
+                        if isinstance(arg, ast.Name) and arg.id in llm_outputs:
+                            findings.append(self.make_finding(path, node, f"Trust boundary crossing: LLM output '{arg.id}' flows to {fname}()."))
+        return findings[:3]
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/security/__init__.py
+================================================
+"""Security rules for AI agents."""
+
+
+
+================================================
+FILE: nti_scanner/rules/security/a2a_rules.py
+================================================
+"""Rules for Agent-to-Agent (A2A) protocol security."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class A2ARule(BaseRule):
+    meta = RuleMeta(id="SEC-A2A-001", category="Security", severity="high", confidence="medium",
+                    description="Agent-to-Agent communication without identity verification", cwe="CWE-287",
+                    remediation="A2A messages must be cryptographically signed.")
+    A2A_INDICATORS: ClassVar[set[str]] = {"a2a", "agentcard", "a2aclient", "a2aserver", "agent_to_agent"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        content = path.read_text(errors="ignore").lower()
+        if not any(kw in content for kw in self.A2A_INDICATORS):
+            return []
+        has_identity = any(kw in content for kw in ["signature", "verify", "dilithium", "nti", "identity"])
+        if not has_identity:
+            node = next(iter(ast.walk(tree)), tree)
+            return [self.make_finding(path, node, "A2A communication without identity verification.")]
+        return []
+
+
+
+================================================
+FILE: nti_scanner/rules/security/capability_escalation.py
+================================================
+"""Detect agent tools with dangerous capabilities."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class CapabilityEscalationRule(BaseRule):
+    meta = RuleMeta(id="SEC-CAP-001", category="Security", severity="high", confidence="medium",
+                    description="Agent tool with destructive capability", cwe="CWE-269",
+                    remediation="Require explicit grant and BFT consensus for destructive tools.")
+    DANGEROUS_NAMES: ClassVar[set[str]] = {"delete", "drop", "destroy", "terminate", "kill", "execute", "sudo", "admin", "chmod", "chown"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                name = node.name.lower()
+                for dec in node.decorator_list:
+                    dec_name = _name(dec.func if isinstance(dec, ast.Call) else dec)
+                    if dec_name in {"tool", "function_tool"} and any(d in name for d in self.DANGEROUS_NAMES):
+                        findings.append(self.make_finding(path, node, f"Tool '{node.name}' has destructive name."))
+        return findings
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/security/command_injection.py
+================================================
+"""Detect command injection via shell calls."""
+import ast
+from pathlib import Path
+
+from nti_scanner.ast_analysis.taint import find_tainted_calls
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class CommandInjectionRule(BaseRule):
+    meta = RuleMeta(id="SEC-CMD-001", category="Security", severity="critical", confidence="high",
+                    description="Potential command injection via unsanitized shell call", cwe="CWE-78",
+                    remediation="Avoid shell=True. Validate all inputs.")
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                fname = _full_name(node.func)
+                if fname in {"os.system", "os.popen"}:
+                    findings.append(self.make_finding(path, node, f"Direct shell execution via {fname}"))
+                elif fname in {"subprocess.run", "subprocess.Popen", "subprocess.call"}:
+                    for kw in node.keywords:
+                        if kw.arg == "shell" and isinstance(kw.value, ast.Constant) and kw.value.value is True:
+                            findings.append(self.make_finding(path, node, f"{fname} called with shell=True"))
+        tainted = find_tainted_calls(tree)
+        for t in tainted:
+            findings.append(Finding(rule_id=self.meta.id, category=self.meta.category, severity=self.meta.severity,
+                                    confidence="high", message=f"Tainted user input flows to {t['sink']}()",
+                                    file=str(path), line=t["line"], column=t["col"], cwe=self.meta.cwe, remediation=self.meta.remediation))
+        return findings[:5]
+
+
+def _full_name(node: ast.AST) -> str:
+    parts: list[str] = []
+    cur: ast.AST = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
+    return ".".join(reversed(parts))
+
+
+
+================================================
+FILE: nti_scanner/rules/security/llm_trust.py
+================================================
+"""Detect blind trust in LLM output."""
+import ast
+from pathlib import Path
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class LLMTrustRule(BaseRule):
+    meta = RuleMeta(id="SEC-LLM-001", category="Security", severity="high", confidence="medium",
+                    description="LLM output used as code or command without validation", cwe="CWE-1426",
+                    remediation="Never eval() or exec() LLM output.")
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        llm_vars: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                fname = _name(node.value.func)
+                if any(k in fname for k in ("invoke", "run", "predict", "generate", "chat")):
+                    for t in node.targets:
+                        if isinstance(t, ast.Name):
+                            llm_vars.add(t.id)
+            if isinstance(node, ast.Call):
+                fname = _name(node.func)
+                if fname in {"eval", "exec", "compile"}:
+                    for arg in node.args:
+                        if isinstance(arg, ast.Name) and arg.id in llm_vars:
+                            findings.append(self.make_finding(path, node, f"LLM output passed to {fname}()"))
+        return findings[:3]
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/security/mcp_rules.py
+================================================
+"""Rules for Model Context Protocol (MCP) security."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class MCPRule(BaseRule):
+    meta = RuleMeta(id="SEC-MCP-001", category="Security", severity="high", confidence="medium",
+                    description="MCP server or client without authentication", cwe="CWE-287",
+                    remediation="Use NTI signed capability tokens for all MCP tool calls.")
+    MCP_INDICATORS: ClassVar[set[str]] = {"mcp", "modelcontext", "mcpclient", "mcpserver", "fastmcp"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        content = path.read_text(errors="ignore").lower()
+        if not any(kw in content for kw in self.MCP_INDICATORS):
+            return []
+        has_auth = any(kw in content for kw in ["auth", "token", "signature", "verify", "nti"])
+        if not has_auth:
+            node = next(iter(ast.walk(tree)), tree)
+            return [self.make_finding(path, node, "MCP integration without authentication.")]
+        return []
+
+
+
+================================================
+FILE: nti_scanner/rules/security/path_traversal.py
+================================================
+"""Detect path traversal in file operations."""
+import ast
+from pathlib import Path
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class PathTraversalRule(BaseRule):
+    meta = RuleMeta(id="SEC-PATH-001", category="Security", severity="high", confidence="medium",
+                    description="Potential path traversal in file operation", cwe="CWE-22",
+                    remediation="Validate file paths with os.path.realpath().")
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                fname = _name(node.func)
+                if fname in {"open", "remove", "unlink", "rmtree"}:
+                    for arg in node.args:
+                        if isinstance(arg, ast.BinOp) and isinstance(arg.op, ast.Add):
+                            findings.append(self.make_finding(path, node, f"Concatenated path passed to {fname}()"))
+        return findings[:3]
+
+
+def _name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+
+================================================
+FILE: nti_scanner/rules/security/pqc_readiness.py
+================================================
+"""Detect classical crypto that quantum computers will break."""
+import ast
+from pathlib import Path
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class PQCReadinessRule(BaseRule):
+    meta = RuleMeta(id="SEC-PQC-001", category="Identity", severity="high", confidence="high",
+                    description="Quantum-vulnerable cryptography (RSA/ECDSA/DH)", cwe="CWE-327",
+                    remediation="Migrate to Dilithium5/Kyber1024.")
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                names = []
+                if isinstance(node, ast.Import): names = [n.name for n in node.names]
+                else: names = [node.module or ""]
+                for name in names:
+                    if any(p in str(name).lower() for p in ["rsa", "ecdsa", "cryptography.hazmat.primitives.asymmetric"]):
+                        findings.append(self.make_finding(path, node, f"Quantum-vulnerable crypto imported: {name}."))
+                        break
+        return findings[:3]
+
+
+
+================================================
+FILE: nti_scanner/rules/security/prompt_injection.py
+================================================
+"""Detect unsanitized user input in agent prompts."""
+import ast
+from pathlib import Path
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class PromptInjectionRule(BaseRule):
+    meta = RuleMeta(id="SEC-PROMPT-001", category="Security", severity="high", confidence="medium",
+                    description="Unsanitized user input concatenated into agent prompt", cwe="CWE-1336",
+                    remediation="Use structured prompt templates instead of f-strings.")
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        content_lower = path.read_text(errors="ignore").lower()
+        if not any(kw in content_lower for kw in ["agent", "llm", "prompt"]):
+            return []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                for value in node.values:
+                    if isinstance(value, ast.FormattedValue) and isinstance(value.value, (ast.Name, ast.Attribute, ast.Subscript)):
+                        findings.append(self.make_finding(path, node, "f-string used in prompt context."))
+                        break
+        return findings[:3]
+
+
+
+================================================
+FILE: nti_scanner/rules/security/secret_leak.py
+================================================
+"""Detect hardcoded secrets."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class SecretLeakRule(BaseRule):
+    meta = RuleMeta(id="SEC-SECRET-001", category="Security", severity="critical", confidence="high",
+                    description="Hardcoded API key or secret", cwe="CWE-798",
+                    remediation="Use environment variables.")
+    SECRET_PREFIXES: ClassVar[set[str]] = {"sk-", "sk_live_", "sk_test_", "AIza", "AKIA", "ghp_", "xoxb-", "xoxp-"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                v = node.value
+                if len(v) < 20 or len(v) > 200:
+                    continue
+                if any(v.startswith(p) for p in self.SECRET_PREFIXES):
+                    findings.append(self.make_finding(path, node, "Hardcoded secret detected."))
+        return findings[:3]
+
+
+
+================================================
+FILE: nti_scanner/rules/security/sql_injection.py
+================================================
+"""Detect SQL injection in agent tools."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class SQLInjectionRule(BaseRule):
+    meta = RuleMeta(id="SEC-SQL-001", category="Security", severity="critical", confidence="high",
+                    description="SQL query built via string concatenation or f-string", cwe="CWE-89",
+                    remediation="Use parameterized queries.")
+    SQL_KEYWORDS: ClassVar[set[str]] = {"select", "insert", "update", "delete", "where", "from"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                for v in ast.walk(node):
+                    if isinstance(v, ast.Constant) and isinstance(v.value, str) and any(kw in v.value.lower() for kw in self.SQL_KEYWORDS):
+                        findings.append(self.make_finding(path, node, "f-string contains SQL keywords."))
+                        break
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and isinstance(node.left, ast.Constant) and isinstance(node.left.value, str) and any(kw in node.left.value.lower() for kw in self.SQL_KEYWORDS):
+                findings.append(self.make_finding(path, node, "SQL string concatenation detected."))
+        return findings[:3]
+
+
+
+================================================
+FILE: nti_scanner/rules/security/ssrf.py
+================================================
+"""Detect SSRF in HTTP requests."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class SSRRule(BaseRule):
+    meta = RuleMeta(id="SEC-SSRF-001", category="Security", severity="high", confidence="medium",
+                    description="Potential SSRF via dynamic URL in HTTP request", cwe="CWE-918",
+                    remediation="Validate and allowlist URLs.")
+    HTTP_CALLS: ClassVar[set[str]] = {"requests.get", "requests.post", "httpx.get", "httpx.post", "urllib.request.urlopen"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                fname = _full_name(node.func)
+                if fname in self.HTTP_CALLS and node.args:
+                    first_arg = node.args[0]
+                    if isinstance(first_arg, (ast.Name, ast.Attribute, ast.Subscript, ast.BinOp)):
+                        findings.append(self.make_finding(path, node, f"Dynamic URL passed to {fname}()"))
+        return findings[:3]
+
+
+def _full_name(node: ast.AST) -> str:
+    parts: list[str] = []
+    cur: ast.AST = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
+    return ".".join(reversed(parts))
+
+
+
+================================================
+FILE: nti_scanner/rules/security/unsafe_deserialization.py
+================================================
+"""Detect unsafe deserialization."""
+import ast
+from pathlib import Path
+from typing import ClassVar
+
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+
+
+class UnsafeDeserializationRule(BaseRule):
+    meta = RuleMeta(id="SEC-DESER-001", category="Security", severity="critical", confidence="high",
+                    description="Unsafe deserialization (pickle, yaml.load)", cwe="CWE-502",
+                    remediation="Use json instead of pickle. Use safe_load for YAML.")
+    UNSAFE: ClassVar[set[str]] = {"pickle.load", "pickle.loads", "yaml.load", "dill.loads", "marshal.loads"}
+
+    def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
+        findings = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                fname = _full_name(node.func)
+                if fname in self.UNSAFE:
+                    findings.append(self.make_finding(path, node, f"Unsafe deserialization via {fname}()"))
+        return findings[:3]
+
+
+def _full_name(node: ast.AST) -> str:
+    parts: list[str] = []
+    cur: ast.AST = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
+    return ".".join(reversed(parts))
+
+
+
+================================================
+FILE: .github/workflows/publish.yml
+================================================
+name: Publish to PyPI
+
+
+on:
+  release:
+    types: [published]
+
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+
+
+================================================
+FILE: .github/workflows/scan.yml
+================================================
+name: NTI Security Scan
+
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install scanner
+        run: pip install .
+      - name: Scan
+        run: nti-scanner scan . --format sarif --output results.sarif || true
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+
+
+================================================
+FILE: .github/workflows/test.yml
+================================================
+name: Test Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Unit tests
+        run: pytest tests/unit -v
+
+      - name: Rule tests
+        run: pytest tests/rules -v
+
+      - name: Contract tests
+        run: pytest tests/contract -v
+
+      - name: Integration tests
+        run: pytest tests/integration -v
+
+      - name: Failure tests
+        run: pytest tests/failure -v
+
+      - name: Regression tests
+        run: pytest tests/regression -v
+
+      - name: Performance tests
+        run: pytest tests/performance -v -s
+
+      - name: Full suite with coverage
+        run: pytest tests/ --cov=nti_scanner --cov-report=term-missing
