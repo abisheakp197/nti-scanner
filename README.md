@@ -111,3 +111,44 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 - NTI Specification: https://abisheakp197.github.io/nti-spec/
 - GitHub Repository: https://github.com/abisheakp197/nti-scanner
+
+---
+
+## Architecture
+
+```mermaid
+graph TD
+    subgraph CLI_Input ["CLI & Input"]
+        CLI["CLI Entrypoint<br/>(nti-scanner scan)"]
+        TargetDir["Target Directory / File"]
+        FileDiscovery["File Discovery & Filter<br/>(*.py Files)"]
+
+        CLI --> TargetDir
+        TargetDir --> FileDiscovery
+    end
+
+    subgraph Scanner_Core ["Scanner Core"]
+        ASTParser["AST Parser<br/>(ast.parse)"]
+        FrameworkDetector["Framework Detector<br/>(LangChain, CrewAI, AutoGen, etc.)"]
+        TaintTracking["Taint Tracking & Call Graph"]
+        RuleEngine["Rule Engine<br/>(19 Security & NTI Rules)"]
+        CWEMapping["CWE Mapping"]
+
+        FileDiscovery --> ASTParser
+        ASTParser --> FrameworkDetector
+        ASTParser --> TaintTracking
+        ASTParser --> RuleEngine
+        FrameworkDetector --> RuleEngine
+        TaintTracking --> RuleEngine
+        RuleEngine --> CWEMapping
+    end
+
+    subgraph Reporting_Engine ["Reporting Engine"]
+        CWEMapping --> Findings["Findings Aggregator"]
+        Findings --> ScoringLogic["Compliance Scoring Logic<br/>(NTI-1 Score & Pillar Scores)"]
+        ScoringLogic --> SARIFGen["SARIF 2.1.0 Generator"]
+        ScoringLogic --> OtherReports["JSON / HTML / Terminal Reporters"]
+        SARIFGen --> Output["CI/CD & Report Output"]
+        OtherReports --> Output
+    end
+```
