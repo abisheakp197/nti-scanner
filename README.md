@@ -1,3 +1,5 @@
+[![NTI Verified](https://img.shields.io/badge/NTI_Score-56%2F100-brightgreen)](https://nti-registry.vercel.app)
+
 # nti-scanner
 
 Professional SAST engine for AI agent compliance and security. AST-based analysis, taint tracking, CWE mapping, and SARIF output for CI/CD pipelines.
