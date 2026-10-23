@@ -42,7 +42,7 @@ def render_sarif(result: ScanResult) -> str:
                 "driver": {
                     "name": "nti-scanner",
                     "informationUri": "https://github.com/abisheakp197/nti-scanner",
-                    "version": "0.1.0",
+                    "version": "0.1.1",
                     "rules": rules_meta,
                 }
             },
