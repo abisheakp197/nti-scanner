@@ -25,7 +25,7 @@ class ScanResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "version": "0.1.0",
+            "version": "0.1.1",
             "path": self.path,
             "frameworks": self.frameworks,
             "nti1_score": self.nti1_score,

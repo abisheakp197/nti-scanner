@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nti-scanner"
-version = "0.1.0"
+version = "0.1.1"
 description = "Professional NTI-1 compliance and AI agent security scanner with AST analysis, taint tracking, CWE mapping, MCP/A2A rules, and SARIF output."
 readme = "README.md"
 requires-python = ">=3.10"

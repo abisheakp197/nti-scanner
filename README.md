@@ -29,6 +29,18 @@ pip install nti-scanner
 
 ---
 
+## The 1-Command Auto-Patcher
+
+### Instant Integration (Recommended)
+Secure your repository in one command. This will automatically generate the NTI workflow, inject the required dependencies, add the compliance badge, and insert the runtime guardrails.
+
+```bash
+pip install nti-scanner
+nti-scanner --fix
+```
+
+---
+
 ## Usage
 
 ### 1. Scan a Codebase

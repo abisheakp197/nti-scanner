@@ -6,6 +6,7 @@ from typing import Any
 import click
 from rich.console import Console
 
+from nti_scanner.fixer import fix_dependencies, fix_guardrails, fix_readme, fix_workflow
 from nti_scanner.report.html import render_html
 from nti_scanner.report.json_report import render_json
 from nti_scanner.report.sarif import render_sarif
@@ -15,20 +16,28 @@ from nti_scanner.scanner import scan_directory
 console = Console()
 
 
-@click.group()
+@click.group(invoke_without_command=True)
+@click.option("--fix", is_flag=True, default=False, help="Automatically fix and configure NTI compliance.")
 @click.version_option()
-def main() -> None:
+@click.pass_context
+def main(ctx: click.Context, fix: bool) -> None:
     """nti-scanner: NTI-1 compliance and AI agent security scanner."""
+    if ctx.invoked_subcommand is None:
+        if fix:
+            ctx.invoke(scan, path=".", fix=True)
+        else:
+            click.echo(ctx.get_help())
 
 
 @main.command()
-@click.argument("path", type=click.Path(exists=True))
+@click.argument("path", type=click.Path(exists=True), default=".")
 @click.option("--format", "fmt", type=click.Choice(["terminal", "json", "sarif", "html"]), default="terminal")
 @click.option("--output", "-o", type=click.Path(), default=None)
 @click.option("--min-score", type=int, default=0)
 @click.option("--severity", type=click.Choice(["critical", "high", "medium", "low", "info"]), default="info")
 @click.option("--exclude", multiple=True)
-def scan(path: str, fmt: str, output: str | None, min_score: int, severity: str, exclude: tuple[str, ...]) -> None:
+@click.option("--fix", is_flag=True, default=False, help="Automatically fix and configure NTI compliance.")
+def scan(path: str, fmt: str, output: str | None, min_score: int, severity: str, exclude: tuple[str, ...], fix: bool) -> None:
     """Scan a directory or file for NTI-1 compliance and AI agent security issues."""
     target_path = Path(path).resolve()
     if fmt == "terminal":
@@ -56,6 +65,14 @@ def scan(path: str, fmt: str, output: str | None, min_score: int, severity: str,
             Path(output).write_text(content, encoding="utf-8")
         else:
             print(content)
+
+    if fix:
+        fix_workflow(target_path)
+        fix_dependencies(target_path)
+        fix_readme(target_path)
+        fix_guardrails(target_path)
+        console.print("[bold green]✅ NTI Auto-Fix applied. Workflow, dependencies, and badge have been configured.[/bold green]")
+
     if min_score > 0 and result.nti1_score < min_score:
         sys.exit(1)
 
