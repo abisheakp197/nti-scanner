@@ -67,11 +67,14 @@ def scan(path: str, fmt: str, output: str | None, min_score: int, severity: str,
             print(content)
 
     if fix:
-        fix_workflow(target_path)
-        fix_dependencies(target_path)
-        fix_readme(target_path)
-        fix_guardrails(target_path)
-        console.print("[bold green]✅ NTI Auto-Fix applied. Workflow, dependencies, and badge have been configured.[/bold green]")
+        try:
+            fix_workflow(target_path)
+            fix_dependencies(target_path)
+            fix_readme(target_path)
+            fix_guardrails(target_path)
+            console.print("[bold green]✅ NTI Auto-Fix applied. Workflow, dependencies, and badge have been configured.[/bold green]")
+        except (PermissionError, OSError) as e:
+            console.print(f"[bold red]Error applying NTI Auto-Fix:[/] {e}")
 
     if min_score > 0 and result.nti1_score < min_score:
         sys.exit(1)
