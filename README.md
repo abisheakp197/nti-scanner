@@ -1,4 +1,4 @@
-[![NTI Verified](https://img.shields.io/badge/NTI_Score-56%2F100-brightgreen)](https://nti-registry.vercel.app)
+[![NTI Verified](https://img.shields.io/badge/NTI_Score-45%2F100-brightgreen)](https://nti-registry.vercel.app)
 
 # nti-scanner
 
@@ -133,7 +133,7 @@ Apache License 2.0. See [LICENSE](LICENSE).
 ```mermaid
 graph TD
     subgraph CLI_Input ["CLI & Input"]
-        CLI["CLI Entrypoint<br/>(nti-scanner scan)"]
+        CLI["CLI Entrypoint<br/>(nti-scanner scan / --fix)"]
         TargetDir["Target Directory / File"]
         FileDiscovery["File Discovery & Filter<br/>(*.py Files)"]
 
@@ -155,6 +155,20 @@ graph TD
         FrameworkDetector --> RuleEngine
         TaintTracking --> RuleEngine
         RuleEngine --> CWEMapping
+    end
+
+    subgraph Auto_Patcher ["Auto-Patcher Engine"]
+        FixerModule["Fixer Module<br/>(nti_scanner.fixer)"]
+        ModReadme["Modifies README.md<br/>(Compliance Badge)"]
+        ModDeps["Modifies Requirements / pyproject.toml<br/>(ube-foundation)"]
+        ModWorkflows["Modifies GitHub Workflows<br/>(nti-scan.yml)"]
+        ModGuardrails["Injects Python Guardrails<br/>(NTICallbackHandler)"]
+
+        CLI -- "--fix" --> FixerModule
+        FixerModule --> ModReadme
+        FixerModule --> ModDeps
+        FixerModule --> ModWorkflows
+        FixerModule --> ModGuardrails
     end
 
     subgraph Reporting_Engine ["Reporting Engine"]

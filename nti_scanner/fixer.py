@@ -1,5 +1,6 @@
 """NTI Auto-Fixer module."""
 import ast
+import sys
 from pathlib import Path
 
 WORKFLOW_YAML = """name: NTI Security Scan
@@ -22,42 +23,74 @@ GUARDRAIL_IMPORT = "from langchain_nti import NTICallbackHandler"
 GUARDRAIL_COMMENT = "# TODO: Pass NTICallbackHandler() to your agent/crew configuration for runtime enforcement."
 
 
+def _get_root_dir(repo_path: str | Path) -> Path:
+    p = Path(repo_path)
+    return p.parent if p.is_file() else p
+
+
 def fix_workflow(repo_path: str | Path) -> None:
     """Ensure .github/workflows/ exists and nti-scan.yml is present."""
-    root = Path(repo_path)
-    workflows_dir = root / ".github" / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-    workflow_file = workflows_dir / "nti-scan.yml"
-    if not workflow_file.exists():
-        workflow_file.write_text(WORKFLOW_YAML, encoding="utf-8")
+    root = _get_root_dir(repo_path)
+    try:
+        workflows_dir = root / ".github" / "workflows"
+        workflows_dir.mkdir(parents=True, exist_ok=True)
+        workflow_file = workflows_dir / "nti-scan.yml"
+        if not workflow_file.exists():
+            workflow_file.write_text(WORKFLOW_YAML, encoding="utf-8")
+    except (PermissionError, OSError) as e:
+        print(f"Error updating workflow: {e}", file=sys.stderr)
 
 
 def fix_dependencies(repo_path: str | Path) -> None:
-    """Ensure requirements.txt exists and ube-foundation dependency is present."""
-    root = Path(repo_path)
+    """Ensure requirements.txt or pyproject.toml exists and ube-foundation dependency is present."""
+    root = _get_root_dir(repo_path)
+    pyproject_file = root / "pyproject.toml"
     req_file = root / "requirements.txt"
-    if not req_file.exists():
-        req_file.write_text(f"{REQUIRED_DEP}\n", encoding="utf-8")
-        return
 
-    content = req_file.read_text(encoding="utf-8")
-    if "ube-foundation" not in content:
-        prefix = "" if not content or content.endswith("\n") else "\n"
-        req_file.write_text(f"{content}{prefix}{REQUIRED_DEP}\n", encoding="utf-8")
+    try:
+        if pyproject_file.exists():
+            content = pyproject_file.read_text(encoding="utf-8")
+            if "ube-foundation" not in content:
+                if "dependencies = [" in content:
+                    new_content = content.replace("dependencies = [", 'dependencies = [\n    "ube-foundation>=0.1.7",', 1)
+                elif "[project]" in content:
+                    new_content = content.replace("[project]", '[project]\ndependencies = [\n    "ube-foundation>=0.1.7",\n]', 1)
+                elif "[tool.poetry.dependencies]" in content:
+                    new_content = content.replace(
+                        "[tool.poetry.dependencies]", '[tool.poetry.dependencies]\nube-foundation = ">=0.1.7"', 1
+                    )
+                else:
+                    prefix = "" if not content or content.endswith("\n") else "\n"
+                    new_content = f'{content}{prefix}[project]\ndependencies = [\n    "ube-foundation>=0.1.7",\n]\n'
+                pyproject_file.write_text(new_content, encoding="utf-8")
+
+        if req_file.exists():
+            content = req_file.read_text(encoding="utf-8")
+            if "ube-foundation" not in content:
+                prefix = "" if not content or content.endswith("\n") else "\n"
+                req_file.write_text(f"{content}{prefix}{REQUIRED_DEP}\n", encoding="utf-8")
+
+        if not pyproject_file.exists() and not req_file.exists():
+            req_file.write_text(f"{REQUIRED_DEP}\n", encoding="utf-8")
+    except (PermissionError, OSError) as e:
+        print(f"Error updating dependencies: {e}", file=sys.stderr)
 
 
 def fix_readme(repo_path: str | Path) -> None:
     """Ensure README.md exists and contains the NTI compliance badge."""
-    root = Path(repo_path)
+    root = _get_root_dir(repo_path)
     readme_file = root / "README.md"
-    if not readme_file.exists():
-        readme_file.write_text(f"{BADGE_MARKDOWN}\n\n# Project\n", encoding="utf-8")
-        return
+    try:
+        if not readme_file.exists():
+            readme_file.write_text(f"{BADGE_MARKDOWN}\n\n# Project\n", encoding="utf-8")
+            return
 
-    content = readme_file.read_text(encoding="utf-8")
-    if "NTI Secured" not in content and "NTI_Score" not in content:
-        new_content = f"{BADGE_MARKDOWN}\n\n{content}"
-        readme_file.write_text(new_content, encoding="utf-8")
+        content = readme_file.read_text(encoding="utf-8")
+        if "NTI Secured" not in content and "NTI_Score" not in content:
+            new_content = f"{BADGE_MARKDOWN}\n\n{content}"
+            readme_file.write_text(new_content, encoding="utf-8")
+    except (PermissionError, OSError) as e:
+        print(f"Error updating README.md: {e}", file=sys.stderr)
 
 
 def fix_guardrails(repo_path: str | Path) -> None:
@@ -79,7 +112,7 @@ def _patch_python_file(py_file: Path) -> None:
     try:
         source = py_file.read_text(encoding="utf-8")
         tree = ast.parse(source)
-    except Exception:
+    except (SyntaxError, UnicodeDecodeError, OSError):
         return
 
     target_lines: list[int] = []
@@ -108,7 +141,7 @@ def _patch_python_file(py_file: Path) -> None:
         target_lines = [l + 1 if l > import_insert_idx else l for l in target_lines]
 
     # 2. Add TODO comments above instantiation lines if not already present
-    unique_target_lines = sorted(list(set(target_lines)), reverse=True)
+    unique_target_lines = sorted(set(target_lines), reverse=True)
 
     for line_no in unique_target_lines:
         idx = line_no - 1  # 0-based index in lines
@@ -127,7 +160,10 @@ def _patch_python_file(py_file: Path) -> None:
     if source.endswith("\n") and not new_source.endswith("\n"):
         new_source += "\n"
 
-    py_file.write_text(new_source, encoding="utf-8")
+    try:
+        py_file.write_text(new_source, encoding="utf-8")
+    except (PermissionError, OSError) as e:
+        print(f"Error patching {py_file}: {e}", file=sys.stderr)
 
 
 def _find_import_insert_index(tree: ast.Module, lines: list[str]) -> int:
@@ -142,15 +178,19 @@ def _find_import_insert_index(tree: ast.Module, lines: list[str]) -> int:
     idx_after_docstring = insert_idx
     first_stmt = tree.body[0]
     if isinstance(first_stmt, ast.Expr) and isinstance(first_stmt.value, ast.Constant) and isinstance(first_stmt.value.value, str):
-        if getattr(first_stmt, "end_lineno", None) is not None:
-            idx_after_docstring = max(insert_idx, first_stmt.end_lineno)
+        end_line = first_stmt.end_lineno
+        if end_line is not None:
+            idx_after_docstring = max(insert_idx, end_line)
         else:
             idx_after_docstring = max(insert_idx, first_stmt.lineno)
 
     last_future_idx = idx_after_docstring
     for stmt in tree.body:
         if isinstance(stmt, ast.ImportFrom) and stmt.module == "__future__":
-            end_line = getattr(stmt, "end_lineno", stmt.lineno)
-            last_future_idx = max(last_future_idx, end_line)
+            future_end = stmt.end_lineno
+            if future_end is not None:
+                last_future_idx = max(last_future_idx, future_end)
+            else:
+                last_future_idx = max(last_future_idx, stmt.lineno)
 
     return last_future_idx
