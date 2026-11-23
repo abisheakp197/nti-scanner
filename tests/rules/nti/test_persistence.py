@@ -8,7 +8,9 @@ from nti_scanner.rules.nti.persistence import PersistenceRule
 def test_rule_exists_and_meta() -> None:
     r = PersistenceRule()
     assert r.meta.id == "NTI-PERS-001"
-    assert r.meta.cwe == "CWE-353"
+    # Reported as a conformance gap: an absent control has no CWE class.
+    assert r.meta.category == "Compliance"
+    assert r.meta.cwe == ""
 
 
 def test_agent_without_persistence_triggers_finding(tmp_path: Path) -> None:

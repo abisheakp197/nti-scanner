@@ -1,31 +1,53 @@
-"""NTI-1 Pillar 2: Governance."""
+"""NTI-1 Pillar 2 (Governance): report tools lacking explicit capability bounds.
+
+Absence of a capability system is an architecture choice in the audited project,
+not a defect in this file, so it is an info-severity Compliance finding. The
+previous implementation fired `critical` whenever the file did not contain the
+literal string "nti", which measured vendor adoption rather than security.
+"""
 import ast
 from pathlib import Path
 from typing import ClassVar
-
 from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
 
 
 class GovernanceRule(BaseRule):
-    meta = RuleMeta(id="NTI-GOV-001", category="Governance", severity="critical", confidence="high",
-                    description="Tool functions without zero-trust capability bounds", cwe="CWE-862",
-                    remediation="Grant explicit capabilities per tool.")
+    meta = RuleMeta(
+        id="NTI-GOV-001",
+        category="Compliance",
+        severity="info",
+        confidence="medium",
+        description="Tool definitions without explicit per-call capability grants",
+        cwe="",
+        remediation="Check an explicit capability grant before each tool invocation.",
+    )
     TOOL_DECORATORS: ClassVar[set[str]] = {"tool", "function_tool"}
-    GOVERNANCE_KEYWORDS: ClassVar[set[str]] = {"grant_capability", "check_capability", "trustengine", "trust_engine", "nti", "policy"}
+    GOVERNANCE_KEYWORDS: ClassVar[set[str]] = {
+        "grant_capability", "check_capability", "capability", "trust_engine",
+        "policy", "authorize", "permission_check",
+    }
 
     def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
         tool_functions: list[ast.AST] = []
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 for dec in node.decorator_list:
-                    if (isinstance(dec, ast.Call) and _name(dec.func) in self.TOOL_DECORATORS) or (isinstance(dec, ast.Name) and dec.id in self.TOOL_DECORATORS):
+                    target = dec.func if isinstance(dec, ast.Call) else dec
+                    if _name(target) in self.TOOL_DECORATORS:
                         tool_functions.append(node)
+                        break
         if not tool_functions:
             return []
         content = path.read_text(errors="ignore").lower()
-        if not any(kw in content for kw in self.GOVERNANCE_KEYWORDS):
-            return [self.make_finding(path, tool_functions[0], f"Found {len(tool_functions)} tool function(s) without governance.")]
-        return []
+        if any(kw in content for kw in self.GOVERNANCE_KEYWORDS):
+            return []
+        return [
+            self.make_finding(
+                path,
+                tool_functions[0],
+                f"{len(tool_functions)} tool function(s) defined with no capability check in this module.",
+            )
+        ]
 
 
 def _name(node: ast.AST) -> str:

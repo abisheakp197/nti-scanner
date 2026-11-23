@@ -12,7 +12,11 @@ def test_all_rules_have_unique_ids():
 
 
 def test_all_rules_have_cwe():
+    # CWE applies to vulnerability classes. Conformance gaps describe an absent
+    # control rather than a specific weakness class, so they are exempt.
     for r in RULES:
+        if r.meta.category == "Compliance":
+            continue
         assert r.meta.cwe, f"{r.meta.id} missing CWE"
 
 

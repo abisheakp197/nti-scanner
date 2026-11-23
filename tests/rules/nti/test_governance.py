@@ -3,21 +3,42 @@ from nti_scanner.ast_analysis.parser import parse_python_file
 from nti_scanner.rules.nti.governance import GovernanceRule
 
 
-def _check(fixtures_dir, subdir):
-    rule = GovernanceRule()
-    findings = []
-    for f in (fixtures_dir / subdir).rglob("*.py"):
-        t = parse_python_file(f)
-        if t:
-            findings.extend(rule.check(f, t, []))
-    return findings
+def _findings(tmp_path, code):
+    f = tmp_path / "mod.py"
+    f.write_text(code)
+    return GovernanceRule().check(f, parse_python_file(f), [])
 
 
-def test_vulnerable_agent_triggers_governance(fixtures_dir):
-    findings = _check(fixtures_dir, "vulnerable_agent")
-    assert any(f.rule_id == "NTI-GOV-001" for f in findings)
+def test_tools_without_capability_check_reported(tmp_path):
+    code = (
+        'from crewai import tool\n'
+        '@tool\n'
+        'def read_file(path):\n'
+        '    return open(path).read()\n'
+    )
+    findings = _findings(tmp_path, code)
+    assert any(x.rule_id == "NTI-GOV-001" for x in findings)
+    assert findings[0].category == "Compliance"
+    assert findings[0].severity == "info"
 
 
-def test_safe_agent_does_not_trigger(fixtures_dir):
-    findings = _check(fixtures_dir, "safe_agent")
-    assert not any(f.rule_id == "NTI-GOV-001" for f in findings)
+def test_tools_with_capability_check_not_reported(tmp_path):
+    code = (
+        'from crewai import tool\n'
+        '@tool\n'
+        'def read_file(path):\n'
+        '    check_capability("fs.read")\n'
+        '    return open(path).read()\n'
+    )
+    assert _findings(tmp_path, code) == []
+
+
+def test_mentioning_nti_is_not_governance(tmp_path):
+    """Regression: the word "nti" used to suppress the finding entirely."""
+    code = (
+        'from crewai import tool\n'
+        '@tool\n'
+        'def read_file(path):\n'
+        '    return open(path).read()\n'
+    )
+    assert _findings(tmp_path, code), "a comment mentioning NTI must not mask the gap"

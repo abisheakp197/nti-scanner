@@ -7,10 +7,10 @@ from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
 
 
 class IdentityRule(BaseRule):
-    meta = RuleMeta(id="NTI-IDENT-001", category="Identity", severity="high", confidence="medium",
-                    description="Agent code lacks cryptographic identity (PQC signatures)", cwe="CWE-287",
-                    remediation="Install ube-foundation and wrap your agent with NTICallbackHandler.")
-    IDENTITY_KEYWORDS: ClassVar[set[str]] = {"dilithium", "kyber", "pqc", "sign", "verify", "signature", "ube_foundation", "nti"}
+    meta = RuleMeta(id="NTI-IDENT-001", category="Compliance", severity="info", confidence="medium",
+                    description="Agent entry point with no cryptographic identity binding", cwe="",
+                    remediation="Bind each agent to a signing identity and verify it before use.")
+    IDENTITY_KEYWORDS: ClassVar[set[str]] = {"dilithium", "kyber", "ml-dsa", "ml-kem", "pqc", "sign", "verify", "signature", "identity"}
 
     def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
         findings = []
@@ -24,8 +24,7 @@ class IdentityRule(BaseRule):
             return []
         content = path.read_text(errors="ignore").lower()
         if not any(kw in content for kw in self.IDENTITY_KEYWORDS):
-            for node in agent_nodes[:3]:
-                findings.append(self.make_finding(path, node, "Agent declared without cryptographic identity. NTI-1 requires Dilithium5 signatures."))
+            findings.append(self.make_finding(path, agent_nodes[0], "Agent declared with no cryptographic identity binding in this module."))
         return findings
 
 

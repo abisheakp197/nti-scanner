@@ -3,21 +3,25 @@ from nti_scanner.ast_analysis.parser import parse_python_file
 from nti_scanner.rules.nti.audit import AuditRule
 
 
-def _check(fixtures_dir, subdir):
-    rule = AuditRule()
-    findings = []
-    for f in (fixtures_dir / subdir).rglob("*.py"):
-        t = parse_python_file(f)
-        if t:
-            findings.extend(rule.check(f, t, []))
-    return findings
+def _findings(tmp_path, code):
+    f = tmp_path / "mod.py"
+    f.write_text(code)
+    return AuditRule().check(f, parse_python_file(f), [])
 
 
-def test_vulnerable_agent_triggers_audit(fixtures_dir):
-    findings = _check(fixtures_dir, "vulnerable_agent")
-    assert any(f.rule_id == "NTI-AUDIT-001" for f in findings)
+def test_agent_without_audit_trail_reported(tmp_path):
+    code = 'from agent import Agent\nworker = Agent(name="w")\n'
+    findings = _findings(tmp_path, code)
+    assert any(x.rule_id == "NTI-AUDIT-001" for x in findings)
+    assert findings[0].severity == "info"
+    assert "ube-foundation" not in findings[0].remediation.lower()
 
 
-def test_safe_agent_no_audit_finding(fixtures_dir):
-    findings = _check(fixtures_dir, "safe_agent")
-    assert not any(f.rule_id == "NTI-AUDIT-001" for f in findings)
+def test_agent_with_audit_trail_not_reported(tmp_path):
+    code = (
+        'from agent import Agent\n'
+        'from audit import log_event\n'
+        'worker = Agent(name="w")\n'
+        'log_event("agent.created", worker)\n'
+    )
+    assert _findings(tmp_path, code) == []

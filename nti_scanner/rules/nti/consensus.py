@@ -6,9 +6,9 @@ from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
 
 
 class ConsensusRule(BaseRule):
-    meta = RuleMeta(id="NTI-CONS-001", category="Consensus", severity="medium", confidence="low",
-                    description="Multi-agent system without BFT consensus", cwe="CWE-703",
-                    remediation="Use NTI BFT consensus for multi-agent systems.")
+    meta = RuleMeta(id="NTI-CONS-001", category="Compliance", severity="info", confidence="low",
+                    description="Multi-agent system without a consensus or arbitration step", cwe="",
+                    remediation="Add an explicit arbitration step for conflicting agent outputs.")
     def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
         agent_count = 0
         first_node: ast.AST | None = None
@@ -22,7 +22,7 @@ class ConsensusRule(BaseRule):
         content = path.read_text(errors="ignore").lower()
         if any(kw in content for kw in ("consensus", "voter", "bft", "threshold")):
             return []
-        return [self.make_finding(path, first_node, f"Multi-agent system ({agent_count} agents) without BFT consensus.")]
+        return [self.make_finding(path, first_node, f"Multi-agent system ({agent_count} agents) with no consensus or arbitration step.")]
 
 
 def _name(node: ast.AST) -> str:

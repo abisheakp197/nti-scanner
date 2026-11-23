@@ -7,9 +7,9 @@ from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
 
 
 class PersistenceRule(BaseRule):
-    meta = RuleMeta(id="NTI-PERS-001", category="Persistence", severity="low", confidence="low",
-                    description="No state persistence with integrity verification", cwe="CWE-353",
-                    remediation="Persist agent state with cryptographic integrity.")
+    meta = RuleMeta(id="NTI-PERS-001", category="Compliance", severity="info", confidence="low",
+                    description="Agent state persisted without integrity verification", cwe="",
+                    remediation="Persist agent state with a verifiable integrity check.")
     PERSISTENCE_KEYWORDS: ClassVar[set[str]] = {"persist", "save_state", "load_state", "verify_history", "integrity"}
 
     def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
@@ -23,7 +23,7 @@ class PersistenceRule(BaseRule):
         content = path.read_text(errors="ignore").lower()
         if any(kw in content for kw in self.PERSISTENCE_KEYWORDS):
             return []
-        return [self.make_finding(path, agent_node, "Agent state persistence lacks cryptographic integrity checks.")]
+        return [self.make_finding(path, agent_node, "Agent constructed with no integrity-verified state persistence in this module.")]
 
 
 def _name(node: ast.AST) -> str:

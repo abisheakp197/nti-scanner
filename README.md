@@ -78,27 +78,46 @@ nti-scanner graph ./my-agent-project --output graph.json
 
 ## Supported Rules (19 Rules)
 
+Findings are reported in two tiers:
+
+- **Vulnerability** — an exploitable defect with a CWE class. Counted in the
+  critical/high/medium/low totals and penalised per distinct rule.
+- **Compliance gap** — a control the codebase does not implement. Reported once
+  per repository, with an occurrence count, and it lowers the NTI-1 pillar score
+  without inflating the vulnerability totals.
+
+Findings under `tests/`, `examples/`, `docs/`, and `fixtures/` are reported but
+excluded from the score, the same way dependency scanners separate dev and
+production scope.
+
+### Vulnerabilities
+
 | Rule ID | Category | Severity | CWE | Description |
 | ------- | -------- | -------- | --- | ----------- |
-| `NTI-IDENT-001` | Identity | High | CWE-287 | Cryptographic agent identity (PQC signatures) |
-| `NTI-GOV-001` | Governance | Critical | CWE-862 | Zero-trust capability bounds on tool functions |
-| `NTI-CONS-001` | Consensus | Medium | CWE-703 | Multi-agent Byzantine Fault Tolerant (BFT) consensus |
-| `NTI-AUDIT-001` | Audit | High | CWE-778 | Merkle-chained audit trail for agent actions |
-| `NTI-PERS-001` | Persistence | Low | CWE-353 | Cryptographic state persistence integrity |
-| `NTI-CAPDIFF-001` | Governance | Critical | CWE-862 | Unauthorized tool capability declarations |
-| `NTI-TRUST-001` | Security | High | CWE-1426 | Trust boundary crossing without NTI verification |
-| `SEC-PROMPT-001` | Security | High | CWE-1336 | Unsanitized user input in prompt f-strings |
+| `SEC-PROMPT-001` | Security | High | CWE-1336 | Untrusted input interpolated into a prompt or tool call |
 | `SEC-CMD-001` | Security | Critical | CWE-78 | Command injection via os.system / subprocess shell=True |
 | `SEC-PATH-001` | Security | High | CWE-22 | Path traversal in file operations |
 | `SEC-SSRF-001` | Security | High | CWE-918 | SSRF via dynamic URLs in HTTP requests |
-| `SEC-SQL-001` | Security | Critical | CWE-89 | SQL injection in agent tools |
-| `SEC-SECRET-001` | Security | Critical | CWE-798 | Hardcoded API keys or credentials |
+| `SEC-SQL-001` | Security | Critical | CWE-89 | SQL assembled by interpolating values, then executed |
+| `SEC-SECRET-001` | Security | Critical | CWE-798 | Hardcoded credential-like strings |
 | `SEC-DESER-001` | Security | Critical | CWE-502 | Unsafe deserialization (pickle, yaml.load) |
 | `SEC-CAP-001` | Security | High | CWE-269 | Agent tool with destructive capability |
 | `SEC-LLM-001` | Security | High | CWE-1426 | LLM output passed to eval() or exec() |
 | `SEC-MCP-001` | Security | High | CWE-287 | MCP integration without authentication |
 | `SEC-A2A-001` | Security | High | CWE-287 | Agent-to-Agent protocol missing identity verification |
-| `SEC-PQC-001` | Identity | High | CWE-327 | Quantum-vulnerable classical cryptography (RSA/ECDSA) |
+| `NTI-TRUST-001` | Security | High | CWE-1426 | Trust boundary crossing without verification |
+
+### Compliance gaps
+
+| Rule ID | Pillar | Description |
+| ------- | ------ | ----------- |
+| `NTI-IDENT-001` | Identity | Agent entry point with no cryptographic identity binding |
+| `NTI-PQC-001` | Identity | Classical (quantum-vulnerable) cryptography in use |
+| `NTI-GOV-001` | Governance | Tools without explicit per-call capability grants |
+| `NTI-CAPDIFF-001` | Governance | Tool declared but never capability-granted |
+| `NTI-CONS-001` | Consensus | Multi-agent system without a consensus step |
+| `NTI-AUDIT-001` | Audit | No tamper-evident audit trail |
+| `NTI-PERS-001` | Persistence | State persisted without integrity verification |
 
 ---
 

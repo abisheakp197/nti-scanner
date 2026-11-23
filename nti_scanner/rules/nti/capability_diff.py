@@ -1,42 +1,49 @@
-"""NTI-unique: Detect unauthorized tool capabilities."""
+"""NTI-1 Pillar 2 (Governance): tools declared but never capability-granted."""
 import ast
 from pathlib import Path
-
 from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
 
 
 class CapabilityDiffRule(BaseRule):
-    meta = RuleMeta(id="NTI-CAPDIFF-001", category="Governance", severity="critical", confidence="high",
-                    description="Tool declared but never granted as a capability", cwe="CWE-862",
-                    remediation="Every tool must have grant_capability().")
+    meta = RuleMeta(
+        id="NTI-CAPDIFF-001",
+        category="Compliance",
+        severity="info",
+        confidence="medium",
+        description="Tool declared but never granted an explicit capability",
+        cwe="",
+        remediation="Grant an explicit capability for every declared tool.",
+    )
 
     def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
-        declared_tools: set[str] = set()
-        granted_caps: set[str] = set()
-        tool_nodes: dict[str, ast.AST] = {}
+        declared: set[str] = set()
+        granted: set[str] = set()
+        nodes: dict[str, ast.AST] = {}
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 for dec in node.decorator_list:
-                    name = _name(dec.func if isinstance(dec, ast.Call) else dec)
-                    if name in {"tool", "function_tool"}:
-                        declared_tools.add(node.name)
-                        tool_nodes[node.name] = node
-            if isinstance(node, ast.Call) and _name(node.func) == "grant_capability" and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
-                granted_caps.add(node.args[0].value)
-        if not declared_tools:
+                    target = dec.func if isinstance(dec, ast.Call) else dec
+                    if _name(target) in {"tool", "function_tool"}:
+                        declared.add(node.name)
+                        nodes[node.name] = node
+            if (
+                isinstance(node, ast.Call)
+                and _name(node.func) == "grant_capability"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            ):
+                granted.add(node.args[0].value)
+        unguarded = declared - granted
+        if not declared or not unguarded:
             return []
-        unguarded = declared_tools - granted_caps
-        if not unguarded:
-            return []
-        content = path.read_text(errors="ignore")
-        if "grant_capability" not in content:
-            node = next((n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))), tree)
-            return [self.make_finding(path, node, f"Tools declared but no grant_capability(). All {len(declared_tools)} tools unauthorized.")]
-        findings = []
-        for tool_name in unguarded:
-            node = tool_nodes.get(tool_name, tree)
-            findings.append(self.make_finding(path, node, f"Tool '{tool_name}' declared but not granted capability via grant_capability()."))
-        return findings
+        return [
+            self.make_finding(
+                path,
+                nodes.get(next(iter(sorted(unguarded))), tree),
+                f"{len(unguarded)} of {len(declared)} tool(s) declared without grant_capability().",
+            )
+        ]
 
 
 def _name(node: ast.AST) -> str:
