@@ -10,14 +10,35 @@ class MCPRule(BaseRule):
     meta = RuleMeta(id="SEC-MCP-001", category="Security", severity="high", confidence="medium",
                     description="MCP server or client without authentication", cwe="CWE-287",
                     remediation="Use NTI signed capability tokens for all MCP tool calls.")
-    MCP_INDICATORS: ClassVar[set[str]] = {"mcp", "modelcontext", "mcpclient", "mcpserver", "fastmcp"}
+    MCP_CLIENT_NAMES: ClassVar[set[str]] = {
+        "mcpclient", "fastmcp", "mcpserver", "mcpsession", "stdio_client",
+        "sse_client", "streamablehttp_client",
+    }
+    AUTH_KWARGS: ClassVar[set[str]] = {
+        "auth", "auth_token", "token", "api_key", "bearer_token", "credentials",
+        "headers", "verify", "signature", "capability_token",
+    }
 
     def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
-        idents = ast_identifiers(tree)
-        if not any(kw in idents for kw in self.MCP_INDICATORS):
-            return []
-        has_auth = any(kw in idents for kw in ["auth", "token", "signature", "verify", "nti"])
-        if not has_auth:
-            node = next(iter(ast.walk(tree)), tree)
-            return [self.make_finding(path, node, "MCP integration without authentication.")]
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = _call_name(node.func)
+            if name not in self.MCP_CLIENT_NAMES:
+                continue
+            supplied = {kw.arg.lower() for kw in node.keywords if kw.arg}
+            if supplied & self.AUTH_KWARGS:
+                continue
+            return [self.make_finding(
+                path, node,
+                f"MCP client '{name}' constructed without authentication parameters.",
+            )]
         return []
+
+
+def _call_name(node: ast.AST) -> str:
+    if isinstance(node, ast.Attribute):
+        return node.attr.lower()
+    if isinstance(node, ast.Name):
+        return node.id.lower()
+    return ""

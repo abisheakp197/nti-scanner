@@ -16,8 +16,8 @@ UNTRUSTED_SOURCES: ClassVar[set[str]] = {
 # Function names that actually reach a model or execute a tool.
 SINK_CALLS: ClassVar[set[str]] = {
     "chat", "completion", "create", "invoke", "run", "generate", "predict",
-    "call", "acompletion", "achat", "astream", "stream", "send", "execute",
-    "prompt", "ask", "query", "format_prompt", "add_message", "append",
+    "call", "acompletion", "achat", "astream", "send", "execute",
+    "prompt", "ask", "query", "format_prompt", "add_message",
 }
 # Parameters that name a prompt-like slot on the call.
 PROMPT_PARAMS: ClassVar[set[str]] = {
