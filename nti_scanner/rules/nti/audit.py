@@ -6,7 +6,7 @@ it, so it is reported as an info-severity Compliance finding.
 import ast
 from pathlib import Path
 from typing import ClassVar
-from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta, ast_identifiers
 
 
 class AuditRule(BaseRule):
@@ -32,8 +32,8 @@ class AuditRule(BaseRule):
                 break
         if entry is None:
             return []
-        content = path.read_text(errors="ignore").lower()
-        if any(kw in content for kw in self.AUDIT_KEYWORDS):
+        idents = ast_identifiers(tree)
+        if any(kw in idents for kw in self.AUDIT_KEYWORDS):
             return []
         return [
             self.make_finding(

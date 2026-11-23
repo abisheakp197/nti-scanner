@@ -8,7 +8,7 @@ literal string "nti", which measured vendor adoption rather than security.
 import ast
 from pathlib import Path
 from typing import ClassVar
-from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta, ast_identifiers
 
 
 class GovernanceRule(BaseRule):
@@ -38,8 +38,8 @@ class GovernanceRule(BaseRule):
                         break
         if not tool_functions:
             return []
-        content = path.read_text(errors="ignore").lower()
-        if any(kw in content for kw in self.GOVERNANCE_KEYWORDS):
+        idents = ast_identifiers(tree)
+        if any(kw in idents for kw in self.GOVERNANCE_KEYWORDS):
             return []
         return [
             self.make_finding(

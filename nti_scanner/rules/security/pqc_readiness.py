@@ -43,8 +43,10 @@ class PQCReadinessRule(BaseRule):
             else:
                 names = [node.module or ""] + [n.name for n in node.names]
             for name in names:
-                low = str(name).lower()
-                hit = next((c for c in CLASSICAL_CRYPTO if c in low), None)
+                # Match whole dotted segments: "conversation" contains "rsa"
+                # as a substring but is not a crypto import.
+                segments = {part.lower() for part in str(name).split(".")}
+                hit = next((c for c in CLASSICAL_CRYPTO if c in segments), None)
                 if hit is None:
                     continue
                 findings.append(

@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 from typing import ClassVar
 
-from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta, ast_identifiers
 
 
 class A2ARule(BaseRule):
@@ -13,10 +13,10 @@ class A2ARule(BaseRule):
     A2A_INDICATORS: ClassVar[set[str]] = {"a2a", "agentcard", "a2aclient", "a2aserver", "agent_to_agent"}
 
     def check(self, path: Path, tree: ast.AST, frameworks: list[str]) -> list[Finding]:
-        content = path.read_text(errors="ignore").lower()
-        if not any(kw in content for kw in self.A2A_INDICATORS):
+        idents = ast_identifiers(tree)
+        if not any(kw in idents for kw in self.A2A_INDICATORS):
             return []
-        has_identity = any(kw in content for kw in ["signature", "verify", "dilithium", "nti", "identity"])
+        has_identity = any(kw in idents for kw in ["signature", "verify", "dilithium", "nti", "identity"])
         if not has_identity:
             node = next(iter(ast.walk(tree)), tree)
             return [self.make_finding(path, node, "A2A communication without identity verification.")]

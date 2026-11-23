@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 from typing import ClassVar
 
-from nti_scanner.rules.base import BaseRule, Finding, RuleMeta
+from nti_scanner.rules.base import BaseRule, Finding, RuleMeta, ast_identifiers
 
 
 class PersistenceRule(BaseRule):
@@ -20,8 +20,8 @@ class PersistenceRule(BaseRule):
                 break
         if agent_node is None:
             return []
-        content = path.read_text(errors="ignore").lower()
-        if any(kw in content for kw in self.PERSISTENCE_KEYWORDS):
+        idents = ast_identifiers(tree)
+        if any(kw in idents for kw in self.PERSISTENCE_KEYWORDS):
             return []
         return [self.make_finding(path, agent_node, "Agent constructed with no integrity-verified state persistence in this module.")]
 

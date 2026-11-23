@@ -9,7 +9,8 @@ def test_cli_version():
     runner = CliRunner()
     result = runner.invoke(main, ["--version"])
     assert result.exit_code == 0
-    assert "0.1.1" in result.output
+    from nti_scanner import __version__ as pkg_version
+    assert pkg_version in result.output
 
 
 def test_cli_rules():
